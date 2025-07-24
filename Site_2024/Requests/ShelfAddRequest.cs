@@ -2,12 +2,12 @@
 
 namespace Site_2024.Web.Api.Requests
 {
-    public class AreaAddRequest
+    public class ShelfAddRequest
     {
         [Required]
         [StringLength(100, MinimumLength = 2)]
         public string Name { get; set; }
         [Required]
-        public int AreaId { get; set; }
+        public int AisleId { get; set; }
     }
 }

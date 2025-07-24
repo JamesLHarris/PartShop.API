@@ -10,17 +10,22 @@ namespace Site_2024.Web.Api.Services
         int AddBox(BoxAddRequest model);
         int AddLocation(LocationAddRequest model);
         int AddSection(SectionAddRequest model);
+        int AddShelf(ShelfAddRequest model);
         int AddSite(SiteAddRequest model);
-        int AddSites(SiteAddRequest model);
         void DeleteLocation(int id);
         List<Aisle> GetAisleAll();
-        List<Area> GetAreaAll();
+        List<Aisle> GetAisleByAreaId(int id);
+        List<Area> GetAreaBySiteId(int id);
         List<Area> GetAreasAll();
         List<Box> GetBoxAll();
+        List<Box> GetBoxBySectionId(int id);
         Location GetLocationById(int id);
+        Location GetLocationBySiteId(int id);
         List<Location> GetLocationsAll();
         List<Section> GetSectionAll();
-        List<Site> GetSiteAll();
+        List<Section> GetSectionByShelfId(int id);
+        List<Shelf> GetShelfAll();
+        List<Shelf> GetShelfByAisleId(int id);
         List<Site> GetSitesAll();
         void UpdateLocation(LocationUpdateRequest model);
     }

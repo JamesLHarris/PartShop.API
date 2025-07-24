@@ -117,6 +117,30 @@ namespace Site_2024.Web.Api.Controllers
             }
             return result;
         }
+        [HttpPost("new-shelf")]
+        public ActionResult<ItemResponse<int>> Shelf(ShelfAddRequest model)
+        {
+            ObjectResult result = null;
+
+            try
+            {
+
+                int id = _service.AddShelf(model);
+
+                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
+
+                result = Created201(response);
+            }
+            catch (Exception ex)
+            {
+                base.Logger.LogError(ex.ToString());
+
+                ErrorResponse response = new ErrorResponse(ex.Message);
+
+                result = StatusCode(500, response);
+            }
+            return result;
+        }
         [HttpPost("new-section")]
         public ActionResult<ItemResponse<int>> Section(SectionAddRequest model)
         {
@@ -218,7 +242,6 @@ namespace Site_2024.Web.Api.Controllers
             return StatusCode(code, response);
         }
 
-
         [HttpGet("single/{id:int}")]
         public ActionResult<ItemResponse<Location>> GetLocationById(int id)
         {
@@ -248,6 +271,161 @@ namespace Site_2024.Web.Api.Controllers
             }
             return StatusCode(code, response);
         }
+
+        [HttpGet("area/{id:int}")]
+        public ActionResult<ItemResponse<List<Area>>> GetAreaBySiteId(int id)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                List<Area> list = _service.GetAreaBySiteId(id);
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Area>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+
+            return StatusCode(code, response);
+        }
+
+
+        [HttpGet("aisle/{id:int}")]
+        public ActionResult<ItemResponse<List<Aisle>>> GetAisleByAreaId(int id)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                List<Aisle> list = _service.GetAisleByAreaId(id);
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Aisle>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+
+            return StatusCode(code, response);
+        }
+
+
+        [HttpGet("shelf/{id:int}")]
+        public ActionResult<ItemResponse<List<Shelf>>> GetShelfByAisleId(int id)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                List<Shelf> list = _service.GetShelfByAisleId(id);
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Shelf>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+
+            return StatusCode(code, response);
+        }
+
+
+        [HttpGet("section/{id:int}")]
+        public ActionResult<ItemResponse<List<Section>>> GetSectionByShelfId(int id)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                List<Section> list = _service.GetSectionByShelfId(id);
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Section>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+
+            return StatusCode(code, response);
+        }
+
+
+        [HttpGet("box/{id:int}")]
+        public ActionResult<ItemResponse<List<Box>>> GetBoxBySectionId(int id)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                List<Box> list = _service.GetBoxBySectionId(id);
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Box>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+
+            return StatusCode(code, response);
+        }
+
 
         [HttpDelete("{id:int}")]
         public ActionResult<SuccessResponse> Delete(int id)

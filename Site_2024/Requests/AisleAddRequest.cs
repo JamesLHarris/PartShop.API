@@ -7,5 +7,7 @@ namespace Site_2024.Web.Api.Requests
         [Required]
         [StringLength(100, MinimumLength = 2)]
         public string Name { get; set; }
+        [Required]
+        public int SiteId { get; set; }
     }
 }

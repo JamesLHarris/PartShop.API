@@ -11,6 +11,9 @@ namespace Site_2024.Web.Api.Requests
         [Required]
         public int AisleId { get; set; }
         [Required]
+
+        public int ShelfId { get; set; }
+        [Required]
         public int SectionId { get; set; }
         [Required]
         public int BoxId { get; set; }
