@@ -8,6 +8,7 @@ namespace Site_2024.Web.Api.Services
         int AddModel(ModelAddRequest model);
         void DeleteModel(int id);
         Model GetModelById(int id);
+        List<Model> GetByMakeId(int Id);
         List<Model> GetModelsAll();
         void UpdateModel(ModelUpdateRequest model);
     }

@@ -6,5 +6,6 @@ namespace Site_2024.Web.Api.Services
     {
         int Create(UserRegisterRequest model);
         Task<bool> LogInAsync(string email, string password);
+        int GetUserIdByEmail(string email);
     }
 }

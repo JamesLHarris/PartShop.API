@@ -27,9 +27,9 @@ namespace Site_2024.Web.Api.Requests
         public float Price { get; set; }
         [Required]
         public int LocationId { get; set; }
-        [Required]
+
         [StringLength(500, MinimumLength = 2)]
-        public string Image { get; set; }
+        public string? Image { get; set; }
         [Required]
         public int AvailableId { get; set; }
         [Required]

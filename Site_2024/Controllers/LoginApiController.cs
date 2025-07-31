@@ -21,48 +21,78 @@ namespace Site_2024.Web.Api.Controllers
 
         public LoginApiController(IUserService service
             ,IAuthenticationService<IUserAuthData> authService
-            ,ILogger<ModelApiController> logger) : base(logger)
+            ,ILogger<LoginApiController> logger) : base(logger)
         {
             _service = service;
             _logger = logger;
             _authService = authService;
         }
 
-        [AllowAnonymous]
         [HttpPost("register")]
-        public ActionResult<ItemResponse<int>> AddUser(UserRegisterRequest model)
+        public ActionResult<ItemResponse<int>> Register([FromBody] UserRegisterRequest model)
         {
             int code = 200;
-            ObjectResult result = null;
+            BaseResponse response;
 
             try
             {
                 int id = _service.Create(model);
-
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
-
-                result = Created201(response);
-
+                response = new ItemResponse<int> { Item = id };
             }
             catch (Exception ex)
             {
-                base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
+                code = 500;
+                Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
             }
-            return result;
-        }
 
+            return StatusCode(code, response);
+        }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] UserLoginRequest model)
+        public async Task<ActionResult<BaseResponse>> Login([FromBody] UserLoginRequest model)
         {
-            bool isLoggedIn = await _service.LogInAsync(model.Email, model.Password);
-            if (!isLoggedIn) return Unauthorized("Invalid credentials.");
-            return Ok("Login successful.");
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                bool success = await _service.LogInAsync(model.Email, model.Password);
+
+                if (!success)
+                {
+                    code = 401;
+                    response = new ErrorResponse("Invalid email or password.");
+                }
+                else
+                {
+                    int userId = _service.GetUserIdByEmail(model.Email); // <== make sure this exists
+                    response = new ItemResponse<int> { Item = userId };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
         }
+
+        [HttpGet("me")]
+        public ActionResult<IUserAuthData> GetCurrentUser()
+        {
+            var user = _authService.GetCurrentUser();
+
+            if (user == null)
+            {
+                return Unauthorized("Not logged in or cookie not read");
+            }
+
+            return Ok(user);
+        }
+
 
         [HttpGet("logout")]
         public async Task<ActionResult<SuccessResponse>> Logout()

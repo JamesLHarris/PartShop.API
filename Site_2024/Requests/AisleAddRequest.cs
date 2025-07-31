@@ -8,6 +8,6 @@ namespace Site_2024.Web.Api.Requests
         [StringLength(100, MinimumLength = 2)]
         public string Name { get; set; }
         [Required]
-        public int SiteId { get; set; }
+        public int AreaId { get; set; }
     }
 }

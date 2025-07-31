@@ -15,6 +15,8 @@ using System.Xml.Linq;
 using Site_2024.Web.Api.Extensions;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Models.User;
+using BCrypt.Net;
+
 
 namespace Site_2024.Web.Api.Services
 {
@@ -34,16 +36,23 @@ namespace Site_2024.Web.Api.Services
             // Hash password (use a real hashing algorithm, this is just for demonstration)
             int userId = 0;
             string password = model.Password;
-            string salt = BCrypt.BCryptHelper.GenerateSalt();
-            string hashedPassword = BCrypt.BCryptHelper.HashPassword(password, salt);
+            string hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
+            int role = 4;
+            model.RoleId = role;
 
             // Prepare SQL to create a new user in the database
             string procName = "[dbo].[User_Insert]";
 
+            Console.WriteLine($"HashedPassword: {hashedPassword}");
+            Console.WriteLine($"Verifying Password: {password}");
+            Console.WriteLine($"Against Hash: {hashedPassword}");
+            Console.WriteLine($"Hash Length: {hashedPassword?.Length}");
+
+
             _dataProvider.ExecuteNonQuery(procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
-                    AddCommonParams(model, col, salt);
+                    AddCommonParams(model, col, hashedPassword);
 
                     SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
                     idOut.Direction = ParameterDirection.Output;
@@ -74,12 +83,12 @@ namespace Site_2024.Web.Api.Services
                 user = new UserAuthData
                 {
                     Id = reader.GetInt32(0),
-                    Email = reader.GetString(1),
-                    PasswordHash = reader.GetString(2)
+                    Email = reader.GetString(2),
+                    PasswordHash = reader.GetString(3)
                 };
             });
 
-            if (user == null || !BCrypt.BCryptHelper.CheckPassword(password, user.PasswordHash))
+            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
                 return false; // Login failed
             }
@@ -89,10 +98,30 @@ namespace Site_2024.Web.Api.Services
             return true; // Login successful
         }
 
-        private static void AddCommonParams(UserRegisterRequest model, SqlParameterCollection col, string salt)
+        public int GetUserIdByEmail(string email)
         {
+            int userId = 0;
+
+            string procName = "[dbo].[User_GetByEmail]";
+            _dataProvider.ExecuteCmd(procName, inputParamMapper: delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@Email", email);
+            },
+            singleRecordMapper: delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                userId = reader.GetInt32(startingIndex);
+            });
+
+            return userId;
+        }
+
+        private static void AddCommonParams(UserRegisterRequest model, SqlParameterCollection col, string hashedPassword)
+        {
+            col.AddWithValue("@name", model.Name);
             col.AddWithValue("@Email", model.Email);
-            col.AddWithValue("@PasswordHash", BCrypt.BCryptHelper.HashPassword(model.Password, salt));
+            col.AddWithValue("@PasswordHash", hashedPassword);
+            col.AddWithValue("@RoleId", model.RoleId);
 
         }
     }

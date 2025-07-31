@@ -1,7 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Site_2024.Web.Api.Constructors;
+using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models;
+using Site_2024.Web.Api.Models.User;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
@@ -15,38 +20,70 @@ namespace Site_2024.Web.Api.Controllers
 
         private IPartService _service;
         private ILogger _logger;
+        private IAuthenticationService<IUserAuthData> _authService;
+        private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public PartsApiController(IPartService service
-         , ILogger<PartsApiController> logger) : base(logger)
+
+        public PartsApiController(
+            IPartService service,
+            ILogger<PartsApiController> logger,
+            IAuthenticationService<IUserAuthData> authService,
+            IWebHostEnvironment webHostEnvironment
+        ) : base(logger)
         {
             _service = service;
             _logger = logger;
+            _authService = authService;
+            _webHostEnvironment = webHostEnvironment;
         }
 
-        [HttpPost("add-new")]
-        public ActionResult<ItemResponse<int>> Add(PartAddRequest model)
-        {
-            ObjectResult result = null;
 
+        [HttpPost("add-new")]
+        [Authorize]
+        public ActionResult<ItemResponse<int>> Add([FromForm] PartAddRequest model, IFormFile? image)
+        {
             try
             {
+                string imageUrl = null;
 
-                int id = _service.AddPart(model);
+                if (image != null && image.Length > 0)
+                {
+                    string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
+                    Directory.CreateDirectory(uploadsFolder); // ensure directory exists
 
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
+                    string fileName = $"{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
+                    Console.WriteLine($"WebRootPath: {_webHostEnvironment.WebRootPath}");
+                    _logger.LogInformation("WebRootPath: {Path}", _webHostEnvironment.WebRootPath);
+                    string filePath = Path.Combine(uploadsFolder, fileName);
 
-                result = Created201(response);
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        image.CopyTo(stream);
+                    }
+
+                    imageUrl = $"/uploads/items/{fileName}";
+                }
+
+                model.Image = imageUrl;
+                model.AvailableId = 1;
+                var user = _authService.GetCurrentUser();
+                if (user == null) return Unauthorized("You must be logged in.");
+
+                int userId = user.Id;
+                //if (!user.IsAdmin)
+                //{
+                //    return Unauthorized("Admin privileges required.");
+                //}
+                int id = _service.AddPart(model, userId);
+
+                return Created201(new ItemResponse<int> { Item = id });
             }
             catch (Exception ex)
             {
-                base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
+                return StatusCode(500, new ErrorResponse(ex.Message));
             }
-            return result;
         }
+
 
         [HttpPut("{id:int}")]
         public ActionResult<SuccessResponse> Update(PartUpdateRequest model)

@@ -54,113 +54,6 @@ namespace Site_2024.Web.Api.Services
             return location;
         }
 
-        public List<Area> GetAreaBySiteId(int id)
-        {
-            string procName = "[dbo].[Area_GetBySiteId]";
-            List<Area> list = new List<Area>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection col)
-                {
-                    col.AddWithValue("@siteId", id);
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Area area = MapSingleArea(reader, ref i);
-                    list.Add(area);
-                });
-
-            return list;
-        }
-
-
-        public List<Aisle> GetAisleByAreaId(int id)
-        {
-            string procName = "[dbo].[Aisle_GetByAreaId]";
-            List<Aisle> list = new List<Aisle>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection col)
-                {
-                    col.AddWithValue("@areaId", id);
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Aisle aisle = MapSingleAisle(reader, ref i);
-                    list.Add(aisle);
-                });
-
-            return list;
-        }
-
-        public List<Shelf> GetShelfByAisleId(int id)
-        {
-            string procName = "[dbo].[Shelf_GetByAisleId]";
-            List<Shelf> list = new List<Shelf>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection col)
-                {
-                    col.AddWithValue("@aisleId", id);
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Shelf shelf = MapSingleShelf(reader, ref i);
-                    list.Add(shelf);
-                });
-
-            return list;
-        }
-
-        public List<Section> GetSectionByShelfId(int id)
-        {
-            string procName = "[dbo].[Section_GetByShelfId]";
-            List<Section> list = new List<Section>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection col)
-                {
-                    col.AddWithValue("@shelfId", id);
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Section section = MapSingleSection(reader, ref i);
-                    list.Add(section);
-                });
-
-            return list;
-        }
-
-        public List<Box> GetBoxBySectionId(int id)
-        {
-            string procName = "[dbo].[Box_GetBySectionId]";
-            List<Box> list = new List<Box>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection col)
-                {
-                    col.AddWithValue("@sectionId", id);
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Box box = MapSingleBox(reader, ref i);
-                    list.Add(box);
-                });
-
-            return list;
-        }
-
-
         public List<Location> GetLocationsAll()
         {
             string procName = "[dbo].[Location_GetAll]";
@@ -182,128 +75,21 @@ namespace Site_2024.Web.Api.Services
 
             return list;
         }
-        public List<Models.Site> GetSitesAll()
+        public List<Location> GetHierarchy(int siteId)
         {
-            string procName = "[dbo].[Site_GetAll]";
+            string procName = "[dbo].[LocationHierarchy_GetBySiteId]"; 
+            List<Location> list = new List<Location>();
 
-            List<Models.Site> list = new List<Models.Site>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
+            _data.ExecuteCmd(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
                 {
-                    // No input parameters, but can be used if needed in the future
+                    col.AddWithValue("@siteId", siteId);
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int i = 0;
-                    Models.Site site = MapSingleSite(reader, ref i);
-                    list.Add(site);
-                });
-
-            return list;
-        }
-        public List<Area> GetAreasAll()
-        {
-            string procName = "[dbo].[Area_GetAll]";
-
-            List<Area> list = new List<Area>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
-                {
-                    // No input parameters, but can be used if needed in the future
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Area area = MapSingleArea(reader, ref i);
-                    list.Add(area);
-                });
-
-            return list;
-        }
-        public List<Aisle> GetAisleAll()
-        {
-            string procName = "[dbo].[Aisle_GetAll]";
-
-            List<Aisle> list = new List<Aisle>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
-                {
-                    // No input parameters, but can be used if needed in the future
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Aisle aisle = MapSingleAisle(reader, ref i);
-                    list.Add(aisle);
-                });
-
-            return list;
-        }
-        public List<Section> GetSectionAll()
-        {
-            string procName = "[dbo].[Section_GetAll]";
-
-            List<Section> list = new List<Section>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
-                {
-                    // No input parameters, but can be used if needed in the future
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Section section = MapSingleSection(reader, ref i);
-                    list.Add(section);
-                });
-
-            return list;
-        }
-        public List<Shelf> GetShelfAll()
-        {
-            string procName = "[dbo].[Shelf_GetAll]";
-
-            List<Shelf> list = new List<Shelf>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
-                {
-                    // No input parameters, but can be used if needed in the future
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Shelf shelf = MapSingleShelf(reader, ref i);
-                    list.Add(shelf);
-                });
-
-            return list;
-        }
-        public List<Box> GetBoxAll()
-        {
-            string procName = "[dbo].[Box_GetAll]";
-
-            List<Box> list = new List<Box>();
-
-            _data.ExecuteCmd(
-                procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
-                {
-                    // No input parameters, but can be used if needed in the future
-                },
-                singleRecordMapper: delegate (IDataReader reader, short set)
-                {
-                    int i = 0;
-                    Box box = MapSingleBox(reader, ref i);
-                    list.Add(box);
+                    Location lh = MapSingleLocationHierarchy(reader, ref i);
+                    list.Add(lh);
                 });
 
             return list;
@@ -323,169 +109,6 @@ namespace Site_2024.Web.Api.Services
             , inputParamMapper: delegate (SqlParameterCollection col)
             {
                 AddCommonLocationParams(model, col);
-
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
-
-            return id;
-        }
-
-        public int AddSite(SiteAddRequest model)
-        {
-            int id = 0;
-
-            string procName = "[dbo].[Site_Insert]";
-
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Name", model.Name);
-
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
-
-            return id;
-        }
-        public int AddArea(AreaAddRequest model)
-        {
-            int id = 0;
-
-            string procName = "[dbo].[Area_Insert]";
-
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Name", model.Name);
-
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
-
-            return id;
-        }
-        public int AddAisle(AisleAddRequest model)
-        {
-            int id = 0;
-
-            string procName = "[dbo].[Aisle_Insert]";
-
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Name", model.Name);
-
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
-
-            return id;
-        }
-        public int AddSection(SectionAddRequest model)
-        {
-            int id = 0;
-
-            string procName = "[dbo].[Section_Insert]";
-
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Name", model.Name);
-
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
-
-            return id;
-        }
-        public int AddShelf(ShelfAddRequest model)
-        {
-            int id = 0;
-
-            string procName = "[dbo].[Shelf_Insert]";
-
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Name", model.Name);
-
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
-
-            return id;
-        }
-        public int AddBox(BoxAddRequest model)
-        {
-            int id = 0;
-
-            string procName = "[dbo].[Box_Insert]";
-
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Name", model.Name);
 
                 SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
                 idOut.Direction = ParameterDirection.Output;
@@ -558,6 +181,8 @@ namespace Site_2024.Web.Api.Services
             location.Area.Name = reader.GetSafeString(startingIndex++);
             location.Aisle.Id = reader.GetSafeInt32(startingIndex++);
             location.Aisle.Name = reader.GetSafeString(startingIndex++);
+            location.Shelf.Id = reader.GetSafeInt32(startingIndex++);
+            location.Shelf.Name = reader.GetSafeString(startingIndex++);
             location.Section.Id = reader.GetSafeInt32(startingIndex++);
             location.Section.Name = reader.GetSafeString(startingIndex++);
             location.Box.Id = reader.GetSafeInt32(startingIndex++);
@@ -565,59 +190,29 @@ namespace Site_2024.Web.Api.Services
             return location;
         }
 
-        private Models.Site MapSingleSite(IDataReader reader, ref int startingIndex)
+        private Location MapSingleLocationHierarchy(IDataReader reader, ref int startingIndex)
         {
-            Models.Site site = new Models.Site();
+            Location location = new Location();
+            location.Site = new Models.Site();
+            location.Area = new Area();
+            location.Aisle = new Aisle();
+            location.Shelf = new Shelf();
+            location.Section = new Section();
+            location.Box = new Box();
 
-            site.Id = reader.GetSafeInt32(startingIndex++);
-            site.Name = reader.GetSafeString(startingIndex++);
-
-            return site;
-        }
-        private Area MapSingleArea(IDataReader reader, ref int startingIndex)
-        {
-            Area area = new Area();
-
-            area.Id = reader.GetSafeInt32(startingIndex++);
-            area.Name = reader.GetSafeString(startingIndex++);
-
-            return area;
-        }
-        private Aisle MapSingleAisle(IDataReader reader, ref int startingIndex)
-        {
-            Aisle aisle = new Aisle();
-
-            aisle.Id = reader.GetSafeInt32(startingIndex++);
-            aisle.Name = reader.GetSafeString(startingIndex++);
-
-            return aisle;
-        }
-        private Section MapSingleSection(IDataReader reader, ref int startingIndex)
-        {
-            Section section = new Section();
-
-            section.Id = reader.GetSafeInt32(startingIndex++);
-            section.Name = reader.GetSafeString(startingIndex++);
-
-            return section;
-        }
-        private Shelf MapSingleShelf(IDataReader reader, ref int startingIndex)
-        {
-            Shelf shelf = new Shelf();
-
-            shelf.Id = reader.GetSafeInt32(startingIndex++);
-            shelf.Name = reader.GetSafeString(startingIndex++);
-
-            return shelf;
-        }
-        private Box MapSingleBox(IDataReader reader, ref int startingIndex)
-        {
-            Box box = new Box();
-
-            box.Id = reader.GetSafeInt32(startingIndex++);
-            box.Name = reader.GetSafeString(startingIndex++);
-
-            return box;
+            location.Site.Id = reader.GetSafeInt32(startingIndex++);
+            location.Site.Name = reader.GetSafeString(startingIndex++);
+            location.Area.Id = reader.GetSafeInt32(startingIndex++);
+            location.Area.Name = reader.GetSafeString(startingIndex++);
+            location.Aisle.Id = reader.GetSafeInt32(startingIndex++);
+            location.Aisle.Name = reader.GetSafeString(startingIndex++);
+            location.Shelf.Id = reader.GetSafeInt32(startingIndex++);
+            location.Shelf.Name = reader.GetSafeString(startingIndex++);
+            location.Section.Id = reader.GetSafeInt32(startingIndex++);
+            location.Section.Name = reader.GetSafeString(startingIndex++);
+            location.Box.Id = reader.GetSafeInt32(startingIndex++);
+            location.Box.Name = reader.GetSafeString(startingIndex++);
+            return location;
         }
 
         #endregion

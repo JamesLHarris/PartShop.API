@@ -6,7 +6,7 @@ namespace Site_2024.Web.Api.Services
 {
     public interface IPartService
     {
-        int AddPart(PartAddRequest model);
+        int AddPart(PartAddRequest model, int userId);
         void DeletePart(int id);
         Paged<Part> GetAvailablePaginated(int pageIndex, int pageSize, int availableId);
         Paged<Part> GetAvailablePaginatedForCustomer(int pageIndex, int pageSize, int availableId);

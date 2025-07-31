@@ -34,7 +34,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Account/Login";  // Define login path
+        options.LoginPath = "/api/user/login";  // Define login path
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.LogoutPath = "/Account/Logout";  // Define logout path
         options.AccessDeniedPath = "/Account/AccessDenied";  // Define access denied path
         options.ExpireTimeSpan = TimeSpan.FromMinutes(60);  // Expire after 60 minutes
@@ -45,10 +47,17 @@ string connString = builder.Configuration.GetConnectionString("connMSSQL");
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connString));
 builder.Services.AddSingleton<IDataProvider>(new DataProvider(connString));
 builder.Services.AddSingleton<IPartService, PartService>();
+builder.Services.AddSingleton<IAvailableService, AvailableService>();
 builder.Services.AddSingleton<IModelService, ModelService>();
 builder.Services.AddSingleton<IMakeService, MakeService>();
 builder.Services.AddSingleton<ICatagoryService, CatagoryService>();
 builder.Services.AddSingleton<ILocationService, LocationService>();
+builder.Services.AddSingleton<ISiteService, SiteService>();
+builder.Services.AddSingleton<IShelfService, ShelfService>();
+builder.Services.AddSingleton<ISectionService, SectionService>();
+builder.Services.AddSingleton<IBoxService, BoxService>();
+builder.Services.AddSingleton<IAreaService, AreaService>();
+builder.Services.AddSingleton<IAisleService, AisleService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();
@@ -62,9 +71,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 
     // Enable CORS in development
-    app.UseCors("CorsPolicy");
 }
 
+app.UseCors("CorsPolicy");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

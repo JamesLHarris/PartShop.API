@@ -38,6 +38,26 @@ namespace Site_2024.Web.Api.Services
             return model;
         }
 
+        public List<Model> GetByMakeId(int Id)
+        {
+            string procName = "[dbo].[Model_GetByMakeId]";
+            List<Model> models = new();
+
+            _data.ExecuteCmd(procName,
+                inputParamMapper: (SqlParameterCollection col) =>
+                {
+                    col.AddWithValue("@makeId", Id);
+                },
+                singleRecordMapper: (IDataReader reader, short set) =>
+                {
+                    int startingIndex = 0;
+                    Model model = MapSingleModel(reader, ref startingIndex);
+                    models.Add(model);
+                });
+
+            return models;
+        }
+
         public List<Model> GetModelsAll()
         {
             string procName = "[dbo].[Model_GetAllModels]";

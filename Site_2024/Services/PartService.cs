@@ -153,33 +153,30 @@ namespace Site_2024.Web.Api.Services
 
         #region ---POST&PUT---
 
-        public int AddPart(PartAddRequest model)
+        public int Insert(PartAddRequest model, int userId)
         {
             int id = 0;
-
             string procName = "[dbo].[Parts_Insert]";
 
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                AddCommonPartsParams(model, col);
+            _data.ExecuteNonQuery(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    model.UserId = userId; // explicitly assign
+                    AddCommonPartsParams(model, col);
 
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
+                    SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
+                    idOut.Direction = ParameterDirection.Output;
+                    col.Add(idOut);
+                },
+                returnParameters: delegate (SqlParameterCollection returnCollection)
+                {
+                    object oId = returnCollection["@Id"].Value;
+                    int.TryParse(oId.ToString(), out id);
+                });
 
             return id;
         }
+
 
         public void UpdatePart(PartUpdateRequest model)
         {
@@ -229,6 +226,7 @@ namespace Site_2024.Web.Api.Services
             col.AddWithValue("@makeId", model.MakeId);
             col.AddWithValue("@year", model.Year);
             col.AddWithValue("@partnumber", model.PartNumber);
+            col.AddWithValue("@catagoryId", model.CatagoryId);
             col.AddWithValue("@rusted", model.Rusted);
             col.AddWithValue("@tested", model.Tested);
             col.AddWithValue("@description", model.Description);
@@ -322,6 +320,11 @@ namespace Site_2024.Web.Api.Services
         }
 
         public void UpdatePartLocation(PartUpdateRequest model)
+        {
+            throw new NotImplementedException();
+        }
+
+        public int AddPart(PartAddRequest model, int userId)
         {
             throw new NotImplementedException();
         }

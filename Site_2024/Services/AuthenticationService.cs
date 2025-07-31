@@ -44,16 +44,27 @@ namespace Site_2024.Web.Api.Services
 
         public IUserAuthData GetCurrentUser()
         {
-            if (IsLoggedIn())
+            var context = _httpContextAccessor.HttpContext;
+
+            if (context?.User?.Identity?.IsAuthenticated != true)
             {
-                return new UserAuthData
-                {
-                    Id = int.Parse(_httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value),
-                    Email = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.Email)?.Value
-                };
+                return null;
             }
 
-            return null;
+            var idClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var emailClaim = context.User.FindFirst(ClaimTypes.Email)?.Value;
+
+            if (!int.TryParse(idClaim, out int userId))
+            {
+                return null;
+            }
+
+            return new UserAuthData
+            {
+                Id = userId,
+                Email = emailClaim
+            };
         }
+
     }
 }

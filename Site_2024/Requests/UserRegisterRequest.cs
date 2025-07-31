@@ -5,6 +5,8 @@ namespace Site_2024.Web.Api.Requests
     public class UserRegisterRequest
     {
         [Required]
+        public string Name { get; set; }
+        [Required]
         [EmailAddress]
         [MaxLength(256)]
         public string Email { get; set; }
@@ -19,6 +21,8 @@ namespace Site_2024.Web.Api.Requests
         [Required]
         [Compare("Password", ErrorMessage = "Passwords do not match.")]
         public string ConfirmPassword { get; set; }
+        [Required]
+        public int RoleId { get; set; }
 
     }
 }

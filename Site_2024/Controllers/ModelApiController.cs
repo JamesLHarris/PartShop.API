@@ -128,6 +128,35 @@ namespace Site_2024.Web.Api.Controllers
             }
             return StatusCode(code, response);
         }
+        [HttpGet("make/{id:int}")]
+        public ActionResult<ItemResponse<List<Model>>> GetByMakeId(int id)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                List<Model> list = _service.GetByMakeId(id);
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("No models found for this make.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Model>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
 
         [HttpDelete("{id:int}")]
         public ActionResult<SuccessResponse> Delete(int id)
