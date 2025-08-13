@@ -7,8 +7,15 @@ using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Services;
 using Site_2024.Web.Api.Models.User;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddEnvironmentVariables();
+
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -40,7 +47,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LogoutPath = "/Account/Logout";  // Define logout path
         options.AccessDeniedPath = "/Account/AccessDenied";  // Define access denied path
         options.ExpireTimeSpan = TimeSpan.FromMinutes(60);  // Expire after 60 minutes
+        options.SlidingExpiration = true; // keeps you logged in during activity
     });
+
+
+builder.Services.AddAuthorization(options =>
+{
+    // granular write permissions for your parts endpoints
+    options.AddPolicy("PartsWrite", p => p.RequireRole("Admin Low", "Admin High"));
+    // add more as needed:
+    options.AddPolicy("UsersAdmin", p => p.RequireRole("Admin", "UserAdmin"));
+});
 
 // Configure DbContext and other services
 string connString = builder.Configuration.GetConnectionString("connMSSQL");
@@ -61,6 +78,8 @@ builder.Services.AddSingleton<IAisleService, AisleService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();
+builder.Services.Configure<StaticFileOptions>(
+    builder.Configuration.GetSection("StaticFileOptions"));
 
 var app = builder.Build();
 
@@ -73,10 +92,22 @@ if (app.Environment.IsDevelopment())
     // Enable CORS in development
 }
 
+
+Console.WriteLine("Static file middleware configured...");
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+    RequestPath = ""
+});
+
+
+
+app.UseRouting();     
 app.UseCors("CorsPolicy");
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();

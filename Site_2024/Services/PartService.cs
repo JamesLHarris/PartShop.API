@@ -6,16 +6,23 @@ using Site_2024.Web.Api.Extensions;
 using System.Data.SqlClient;
 using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Requests;
+using Microsoft.Extensions.Options;
+using Site_2024.Web.Api.Configurations;
+
 
 namespace Site_2024.Web.Api.Services
 {
     public class PartService : IPartService
     {
         private IDataProvider _data;
+        private readonly Site_2024.Web.Api.Configurations.StaticFileOptions _staticFileOptions;
 
-        public PartService(IDataProvider data)
+
+        public PartService(IDataProvider data, IOptions<Site_2024.Web.Api.Configurations.StaticFileOptions> staticFileOptions)
+
         {
             _data = data;
+            _staticFileOptions = staticFileOptions.Value;
         }
 
         #region ---GET---
@@ -149,6 +156,134 @@ namespace Site_2024.Web.Api.Services
             return pagedList;
         }
 
+        public Paged<Part> GetByModelPaginated(int pageIndex, int pageSize, int modelId)
+        {
+            string procName = "[dbo].[Parts_GetByModelPaginated]";
+            List<Part> list = null;
+            int totalCount = 0;
+
+            _data.ExecuteCmd(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@PageIndex", pageIndex);
+                    col.AddWithValue("@PageSize", pageSize);
+                    col.AddWithValue("@ModelId", modelId);
+                },
+                singleRecordMapper: (reader, set) =>
+                {
+                    int i = 0;
+                    Part part = MapSinglePart(reader, ref i);
+
+                    if (totalCount == 0)
+                    {
+                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                    }
+
+                    list ??= new List<Part>();
+                    list.Add(part);
+                }
+           );
+
+            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+        }
+
+        public Paged<Part> GetByModelPaginatedCustomer(int pageIndex, int pageSize, int modelId)
+        {
+            string procName = "[dbo].[Parts_GetByModelPaginatedCustomer]";
+            List<Part> list = null;
+            int totalCount = 0;
+
+            _data.ExecuteCmd(
+                procName,
+                inputParamMapper: col =>
+                {
+                    col.AddWithValue("@PageIndex", pageIndex);
+                    col.AddWithValue("@PageSize", pageSize);
+                    col.AddWithValue("@ModelId", modelId);
+                },
+                singleRecordMapper: (reader, set) =>
+                {
+                    int i = 0;
+                    Part part = MapSinglePartForCustomer(reader, ref i);
+
+                    if (totalCount == 0)
+                    {
+                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                    }
+
+                    list ??= new List<Part>();
+                    list.Add(part);
+                }
+            );
+
+            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+        }
+
+        public Paged<Part> GetByCategoryPaginated(int pageIndex, int pageSize, int categoryId)
+        {
+            string procName = "[dbo].[Parts_GetByCatagoryPaginated]";
+            List<Part> list = null;
+            int totalCount = 0;
+
+            _data.ExecuteCmd(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@PageIndex", pageIndex);
+                    col.AddWithValue("@PageSize", pageSize);
+                    col.AddWithValue("@catagoryId", categoryId);
+                },
+                singleRecordMapper: (reader, set) =>
+                {
+                    int i = 0;
+                    Part part = MapSinglePart(reader, ref i);
+
+                    if (totalCount == 0)
+                    {
+                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                    }
+
+                    list ??= new List<Part>();
+                    list.Add(part);
+                }
+           );
+
+            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+        }
+
+        public Paged<Part> GetByCategoryPaginatedCustomer(int pageIndex, int pageSize, int categoryId)
+        {
+            string procName = "[dbo].[Parts_GetByCatagoryPaginatedCustomer]";
+            List<Part> list = null;
+            int totalCount = 0;
+
+            _data.ExecuteCmd(
+                procName,
+                inputParamMapper: col =>
+                {
+                    col.AddWithValue("@PageIndex", pageIndex);
+                    col.AddWithValue("@PageSize", pageSize);
+                    col.AddWithValue("@catagoryId", categoryId);
+                },
+                singleRecordMapper: (reader, set) =>
+                {
+                    int i = 0;
+                    Part part = MapSinglePartForCustomer(reader, ref i);
+
+                    if (totalCount == 0)
+                    {
+                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                    }
+
+                    list ??= new List<Part>();
+                    list.Add(part);
+                }
+            );
+
+            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+        }
+
+
+
         #endregion
 
         #region ---POST&PUT---
@@ -249,6 +384,7 @@ namespace Site_2024.Web.Api.Services
             part.Location.Site = new Site();
             part.Location.Area = new Area();
             part.Location.Aisle = new Aisle();
+            part.Location.Shelf = new Shelf();
             part.Location.Section = new Section();
             part.Location.Box = new Box();
             part.Available = new Available();
@@ -275,11 +411,17 @@ namespace Site_2024.Web.Api.Services
             part.Location.Area.Name = reader.GetSafeString(startingIndex++);
             part.Location.Aisle.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Aisle.Name = reader.GetSafeString(startingIndex++);
+            part.Location.Shelf.Id = reader.GetSafeInt32( startingIndex++);
+            part.Location.Shelf.Name = reader.GetSafeString( startingIndex++);
             part.Location.Section.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Section.Name = reader.GetSafeString(startingIndex++);
             part.Location.Box.Id = reader.GetSafeInt32( startingIndex++);
             part.Location.Box.Name = reader.GetSafeString(startingIndex++);
-            part.Image = reader.GetSafeString(startingIndex++);
+            string imagePath = reader.GetSafeString(startingIndex++);
+            part.Image = string.IsNullOrEmpty(imagePath)
+                ? null
+                : $"{_staticFileOptions.ImageBaseUrl}{imagePath}";
+
             part.Available.Id = reader.GetSafeInt32(startingIndex++);
             part.Available.Status = reader.GetSafeString(startingIndex++);
             part.DateCreated = reader.GetSafeDateTime(startingIndex++);
@@ -312,22 +454,18 @@ namespace Site_2024.Web.Api.Services
             part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDouble(startingIndex++);
-            part.Image = reader.GetSafeString(startingIndex++);
+            string imagePath = reader.GetSafeString(startingIndex++);
+            part.Image = string.IsNullOrEmpty(imagePath)
+                ? null
+                : $"{_staticFileOptions.ImageBaseUrl}{imagePath}";
+
             part.Available.Id = reader.GetSafeInt32(startingIndex++);
             part.Available.Status = reader.GetSafeString(startingIndex++);
 
             return part;
         }
 
-        public void UpdatePartLocation(PartUpdateRequest model)
-        {
-            throw new NotImplementedException();
-        }
 
-        public int AddPart(PartAddRequest model, int userId)
-        {
-            throw new NotImplementedException();
-        }
 
         #endregion
     }

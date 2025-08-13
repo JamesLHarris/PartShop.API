@@ -74,7 +74,7 @@ namespace Site_2024.Web.Api.Controllers
                 //{
                 //    return Unauthorized("Admin privileges required.");
                 //}
-                int id = _service.AddPart(model, userId);
+                int id = _service.Insert(model, userId);
 
                 return Created201(new ItemResponse<int> { Item = id });
             }
@@ -160,6 +160,127 @@ namespace Site_2024.Web.Api.Controllers
             }
             return StatusCode(code, response);
         }
+        [HttpGet("model/{modelId:int}")]
+        public ActionResult<ItemResponse<Paged<Part>>> GetByModelCustomer(int pageIndex, int pageSize, int modelId)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                Paged<Part> pages = _service.GetByModelPaginatedCustomer(pageIndex, pageSize, modelId);
+
+                if (pages == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Parts not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpGet("model/{modelId:int}/admin")]
+        public ActionResult<ItemResponse<Paged<Part>>> GetByModelAdmin(int pageIndex, int pageSize, int modelId)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                Paged<Part> pages = _service.GetByModelPaginated(pageIndex, pageSize, modelId);
+
+                if (pages == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Parts not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpGet("category/{categoryId:int}")]
+        public ActionResult<ItemResponse<Paged<Part>>> GetByCategoryCustomer(int pageIndex, int pageSize, int categoryId)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                Paged<Part> pages = _service.GetByCategoryPaginatedCustomer(pageIndex, pageSize, categoryId);
+
+                if (pages == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Parts not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpGet("category/{categoryId:int}/admin")]
+        public ActionResult<ItemResponse<Paged<Part>>> GetByCategoryAdmin(int pageIndex, int pageSize, int categoryId)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                Paged<Part> pages = _service.GetByCategoryPaginated(pageIndex, pageSize, categoryId);
+
+                if (pages == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Parts not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+
+            return StatusCode(code, response);
+        }
+
+
         [HttpGet("available")]
         public ActionResult<ItemResponse<Paged<Part>>> GetAvailablePaginatedCustomers(int pageIndex, int pageSize)
         {
@@ -271,6 +392,28 @@ namespace Site_2024.Web.Api.Controllers
 
             return StatusCode(code, response);
         }
+
+        [HttpGet("test-image")]
+        public IActionResult GetTestImage()
+        {
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "items", "963835b6-bb43-494b-83b4-0102f3d6a86b.jpg");
+
+            if (!System.IO.File.Exists(path))
+            {
+                return NotFound("File not found at: " + path);
+            }
+
+            try
+            {
+                return PhysicalFile(path, "image/jpeg");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error sending file: {ex.Message}");
+            }
+        }
+
+
 
     }
 }

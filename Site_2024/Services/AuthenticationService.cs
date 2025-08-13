@@ -66,5 +66,38 @@ namespace Site_2024.Web.Api.Services
             };
         }
 
+public async Task LogInAsync(IUserAuthData user, IEnumerable<string> roles)
+    {
+        var claims = new List<Claim>
+    {
+        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new(ClaimTypes.Email, user.Email)
+    };
+
+        if (roles != null)
+        {
+            foreach (var r in roles)
+            {
+                if (!string.IsNullOrWhiteSpace(r))
+                    claims.Add(new Claim(ClaimTypes.Role, r));
+            }
+        }
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        var props = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            IssuedUtc = DateTime.UtcNow,
+            ExpiresUtc = DateTime.UtcNow.AddHours(1),
+            AllowRefresh = true
+        };
+
+        await _httpContextAccessor.HttpContext!.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme, principal, props);
     }
+
+
+}
 }

@@ -6,10 +6,14 @@ namespace Site_2024.Web.Api.Services
 {
     public interface IPartService
     {
-        int AddPart(PartAddRequest model, int userId);
+        int Insert(PartAddRequest model, int userId);
         void DeletePart(int id);
         Paged<Part> GetAvailablePaginated(int pageIndex, int pageSize, int availableId);
         Paged<Part> GetAvailablePaginatedForCustomer(int pageIndex, int pageSize, int availableId);
+        public Paged<Part> GetByModelPaginated(int pageIndex, int pageSize, int modelId);
+        public Paged<Part> GetByModelPaginatedCustomer(int pageIndex, int pageSize, int modelId);
+        public Paged<Part> GetByCategoryPaginated(int pageIndex, int pageSize, int categoryId);
+        public Paged<Part> GetByCategoryPaginatedCustomer(int pageIndex, int pageSize, int categoryId);
         Part GetPartById(int id);
         Paged<Part> GetPartsPaginated(int pageIndex, int pageSize);
         void UpdatePart(PartUpdateRequest model);

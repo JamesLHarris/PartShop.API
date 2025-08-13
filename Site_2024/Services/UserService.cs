@@ -16,6 +16,7 @@ using Site_2024.Web.Api.Extensions;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Models.User;
 using BCrypt.Net;
+using Site_2024.Web.Api.Models;
 
 
 namespace Site_2024.Web.Api.Services
@@ -116,6 +117,24 @@ namespace Site_2024.Web.Api.Services
             return userId;
         }
 
+        public User GetUserByEmail(string email)
+        {
+            string procName = "[dbo].[User_GetByEmailCookie]";
+            User? user = null;
+
+            _dataProvider.ExecuteCmd(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@Email", email);
+                }, delegate (IDataReader reader, short set)
+                {
+                    int startingIndex = 0;
+                    user = MapSingleUser(reader, ref startingIndex);
+                });
+
+            return user;
+        }
+
         private static void AddCommonParams(UserRegisterRequest model, SqlParameterCollection col, string hashedPassword)
         {
             col.AddWithValue("@name", model.Name);
@@ -123,6 +142,21 @@ namespace Site_2024.Web.Api.Services
             col.AddWithValue("@PasswordHash", hashedPassword);
             col.AddWithValue("@RoleId", model.RoleId);
 
+        }
+
+        private User MapSingleUser(IDataReader reader, ref int startingIndex)
+        {
+            User user = new User();
+            user.Role = new Role();
+
+            user.Id = reader.GetSafeInt32(startingIndex++);
+            user.Name = reader.GetSafeString(startingIndex++);
+            user.Email = reader.GetSafeString(startingIndex++);
+            user.DateCreated = reader.GetSafeDateTime(startingIndex++);
+            user.Role.Id = reader.GetSafeInt32(startingIndex++);
+            user.Role.Name = reader.GetSafeString(startingIndex++);
+
+            return user;
         }
     }
 

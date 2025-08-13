@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using Site_2024.Web.Api.Interfaces;
+using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Models.User;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
@@ -91,6 +92,36 @@ namespace Site_2024.Web.Api.Controllers
             }
 
             return Ok(user);
+        }
+
+        [HttpGet("current")]
+        public ActionResult<ItemResponse<User>> GetUserByEmail(string email)
+        {
+            int code = 200;
+            BaseResponse response = null;
+
+            try
+            {
+                User course = _service.GetUserByEmail(email);
+
+                if (course == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<User> { Item = course };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+
+            }
+            return StatusCode(code, response);
         }
 
 
