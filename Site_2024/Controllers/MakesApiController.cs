@@ -1,159 +1,103 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
+using System;
+using System.Collections.Generic;
 
 namespace Site_2024.Web.Api.Controllers
 {
-    [Route("api/make")]
     [ApiController]
+    [Route("api/makes")]
     public class MakesApiController : BaseApiController
     {
-        private IMakeService _service;
-        private ILogger _logger;
+        private readonly IMakeService _service;
 
-        public MakesApiController(IMakeService service
-        , ILogger<MakesApiController> logger) : base(logger)
+        public MakesApiController(IMakeService service, ILogger<MakesApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
         }
 
-        [HttpPost("new-make")]
-        public ActionResult<ItemResponse<int>> Add(MakeAddRequest model)
-        {
-            ObjectResult result = null;
-
-            try
-            {
-
-                int id = _service.AddMake(model);
-
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
-
-                result = Created201(response);
-            }
-            catch (Exception ex)
-            {
-                base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
-            }
-            return result;
-        }
-
-        [HttpPut("{id:int}")]
-        public ActionResult<SuccessResponse> Update(MakeUpdateRequest model)
+        [HttpGet("all")]
+        public ActionResult<ItemResponse<List<Make>>> GetAll()
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                //int currentUserId = _authService.GetCurrentUserId();
-                //currentUserId   <----- THIS WILL BE USED FOR A LATER UPDATE 
+                List<Make> list = _service.GetMakesAll();
 
-                _service.UpdateMake(model);
-
-                response = new SuccessResponse();
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                response = new ErrorResponse(ex.Message);
-            }
-            return StatusCode(code, response);
-        }
-
-        [HttpGet("available")]
-        public ActionResult<ItemResponse<List<Make>>> GetMakesAll()
-        {
-            int code = 200;
-            BaseResponse response = null;
-
-            try
-            {
-                List<Make> pages = _service.GetMakesAll();
-
-                if (pages == null)
+                if (list == null || list.Count == 0)
                 {
                     code = 404;
-                    response = new ErrorResponse("App Resource not found.");
+                    response = new ErrorResponse("No makes found.");
                 }
                 else
                 {
-                    response = new ItemResponse<List<Make>> { Item = pages };
+                    response = new ItemResponse<List<Make>> { Item = list };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
-                response = new ErrorResponse(ex.Message);
                 base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
             }
+
             return StatusCode(code, response);
         }
 
-        [HttpGet("companies")]
-        public ActionResult<ItemResponse<List<Make>>> GetMakesAllCompanies()
+        [HttpGet("{id:int}")]
+        public ActionResult<ItemResponse<Make>> GetById(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                List<Make> pages = _service.GetMakesAllCompanies();
+                Make item = _service.GetMakeById(id);
 
-                if (pages == null)
-                {
-                    code = 404;
-                    response = new ErrorResponse("App Resource not found.");
-                }
-                else
-                {
-                    response = new ItemResponse<List<Make>> { Item = pages };
-                }
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                response = new ErrorResponse(ex.Message);
-                base.Logger.LogError(ex.ToString());
-            }
-            return StatusCode(code, response);
-        }
-
-        [HttpGet("available/{id:int}")]
-        public ActionResult<ItemResponse<Make>> GetMakeById(int id)
-        {
-            int code = 200;
-            BaseResponse response = null;
-
-            try
-            {
-                Make course = _service.GetMakeById(id);
-
-                if (course == null)
+                if (item == null)
                 {
                     code = 404;
                     response = new ErrorResponse("Not found.");
                 }
                 else
                 {
-                    response = new ItemResponse<Make> { Item = course };
+                    response = new ItemResponse<Make> { Item = item };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
                 base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse($"Generic Error: {ex.Message}");
-
+                response = new ErrorResponse(ex.Message);
             }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpPost]
+        public ActionResult<ItemResponse<int>> Add([FromBody] MakeAddRequest model)
+        {
+            int code = 201;
+            BaseResponse response;
+
+            try
+            {
+                int id = _service.AddMake(model);
+                response = new ItemResponse<int> { Item = id };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
             return StatusCode(code, response);
         }
 
@@ -161,24 +105,21 @@ namespace Site_2024.Web.Api.Controllers
         public ActionResult<SuccessResponse> Delete(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
                 _service.DeleteMake(id);
-
                 response = new SuccessResponse();
             }
             catch (Exception ex)
             {
                 code = 500;
-
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
-
             }
 
             return StatusCode(code, response);
         }
-
     }
 }

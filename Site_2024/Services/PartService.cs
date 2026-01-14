@@ -17,7 +17,6 @@ namespace Site_2024.Web.Api.Services
         private IDataProvider _data;
         private readonly Site_2024.Web.Api.Configurations.StaticFileOptions _staticFileOptions;
 
-
         public PartService(IDataProvider data, IOptions<Site_2024.Web.Api.Configurations.StaticFileOptions> staticFileOptions)
 
         {
@@ -39,6 +38,24 @@ namespace Site_2024.Web.Api.Services
                 {
                     int startingIndex = 0;
                     part = MapSinglePart(reader, ref startingIndex);
+                });
+
+            return part;
+        }
+
+        public Part GetPartByIdCustomer(int id)
+        {
+            string procName = "[dbo].[Parts_GetByIdCustomer]";
+            Part? part = null;
+
+            _data.ExecuteCmd(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@Id", id);
+                }, delegate (IDataReader reader, short set)
+                {
+                    int startingIndex = 0;
+                    part = MapSinglePartForCustomer(reader, ref startingIndex);
                 });
 
             return part;
@@ -282,7 +299,40 @@ namespace Site_2024.Web.Api.Services
             return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
         }
 
+        public List<PartSearchResult> Search(PartSearchRequest model)
+        {
+            string procName = "[dbo].[Parts_Search]";
+            List<PartSearchResult> list = null;
 
+            _data.ExecuteCmd(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@q", (object?)model.q ?? DBNull.Value);
+                    col.AddWithValue("@CatagoryId", (object?)model.CatagoryId ?? DBNull.Value);
+                    col.AddWithValue("@MakeId", (object?)model.MakeId ?? DBNull.Value);
+                    col.AddWithValue("@ModelId", (object?)model.ModelId ?? DBNull.Value);
+                    col.AddWithValue("@YearMin", (object?)model.YearMin ?? DBNull.Value);
+                    col.AddWithValue("@YearMax", (object?)model.YearMax ?? DBNull.Value);
+                    col.AddWithValue("@AvailableId", (object?)model.AvailableId ?? DBNull.Value);
+                    col.AddWithValue("@PriceMin", (object?)model.PriceMin ?? DBNull.Value);
+                    col.AddWithValue("@PriceMax", (object?)model.PriceMax ?? DBNull.Value);
+                    col.AddWithValue("@Rusted", (object?)model.Rusted ?? DBNull.Value);
+                    col.AddWithValue("@Tested", (object?)model.Tested ?? DBNull.Value);
+                    col.AddWithValue("@SiteId", (object?)model.SiteId ?? DBNull.Value);
+                    col.AddWithValue("@BoxId", (object?)model.BoxId ?? DBNull.Value);
+                    col.AddWithValue("@MaxRows", model.MaxRows);
+                    col.AddWithValue("@CustomerView", model.CustomerView);
+                },
+                singleRecordMapper: delegate (IDataReader reader, short set)
+                {
+                    int i = 0;
+                    PartSearchResult p = MapPart(reader, ref i);
+                    list ??= new List<PartSearchResult>();
+                    list.Add(p);
+                });
+
+            return list ?? new List<PartSearchResult>();
+        }
 
         #endregion
 
@@ -337,6 +387,31 @@ namespace Site_2024.Web.Api.Services
             }
             , returnParameters: null);
         }
+
+        public void PatchPart(int id, PartPatchRequest model /*, int userId */)
+        {
+            const string procName = "[dbo].[Parts_UpdatePartial]";
+
+            _data.ExecuteNonQuery(procName, col =>
+            {
+                col.Add("@Id", SqlDbType.Int).Value = id;
+                var pPrice = col.Add("@Price", SqlDbType.Decimal);
+                pPrice.Precision = 18;
+                pPrice.Scale = 2;
+                pPrice.Value = (object?)model.Price ?? DBNull.Value;
+                col.Add("@AvailableId", SqlDbType.Int).Value = (object?)model.AvailableId ?? DBNull.Value;
+                col.Add("@Rusted", SqlDbType.Bit).Value = (object?)model.Rusted ?? DBNull.Value;
+                col.Add("@Tested", SqlDbType.Bit).Value = (object?)model.Tested ?? DBNull.Value;
+                col.Add("@Description", SqlDbType.NVarChar, 4000).Value =
+                    (object?)model.Description ?? DBNull.Value;
+                col.Add("@Image", SqlDbType.NVarChar, 260).Value =
+                    (object?)model.Image ?? DBNull.Value; // adjust size to your column
+                col.Add("@LocationId", SqlDbType.Int).Value =
+                    (object?)model.LocationId ?? DBNull.Value;
+                // col.Add("@ModifiedBy", SqlDbType.Int).Value = userId;
+            });
+        }
+
 
         #endregion
 
@@ -403,7 +478,7 @@ namespace Site_2024.Web.Api.Services
             part.Rusted = reader.GetSafeBool(startingIndex++);
             part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
-            part.Price = reader.GetSafeDouble(startingIndex++);
+            part.Price = reader.GetSafeDecimal(startingIndex++);
             part.Location.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Name = reader.GetSafeString(startingIndex++);
@@ -453,7 +528,7 @@ namespace Site_2024.Web.Api.Services
             part.Rusted = reader.GetSafeBool(startingIndex++);
             part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
-            part.Price = reader.GetSafeDouble(startingIndex++);
+            part.Price = reader.GetSafeDecimal(startingIndex++);
             string imagePath = reader.GetSafeString(startingIndex++);
             part.Image = string.IsNullOrEmpty(imagePath)
                 ? null
@@ -465,7 +540,37 @@ namespace Site_2024.Web.Api.Services
             return part;
         }
 
+        private static PartSearchResult MapPart(IDataReader reader, ref int startingIndex)
+        {
+            // Using your GetSafe* extensions to avoid null exceptions
+            PartSearchResult p = new PartSearchResult();
 
+            p.Id = reader.GetSafeInt32(startingIndex++);
+            p.Name = reader.GetSafeString(startingIndex++);
+            p.CatagoryId = reader.GetSafeInt32(startingIndex++);
+            p.CatagoryName = reader.GetSafeString(startingIndex++);
+            p.MakeId = reader.GetSafeInt32(startingIndex++);
+            p.MakeName = reader.GetString(startingIndex++);
+            p.ModelId = reader.GetSafeInt32(startingIndex++);
+            p.ModelName = reader.GetSafeString(startingIndex++);
+            p.Year = reader.GetSafeInt32(startingIndex++);
+            p.PartNumber = reader.GetSafeString(startingIndex++);
+            p.Rusted = reader.GetSafeBool(startingIndex++);
+            p.Tested = reader.GetSafeBool(startingIndex++);
+            p.Description = reader.GetSafeString(startingIndex++);
+            p.Price = reader.GetSafeDecimal(startingIndex++);
+            p.Image = reader.GetSafeString(startingIndex++);
+            p.AvailableId = reader.GetSafeInt32(startingIndex++);
+            p.AvailableStatus = reader.GetSafeString(startingIndex++);
+            p.SiteId = reader.GetSafeInt32(startingIndex++);
+            p.SiteName = reader.GetSafeString(startingIndex++);
+            p.BoxId = reader.GetSafeInt32(startingIndex++);
+            p.BoxName = reader.GetSafeString(startingIndex++);
+            p.DateCreated = reader.GetSafeDateTime(startingIndex++);
+            p.DateModified = reader.GetSafeDateTime(startingIndex++);
+
+            return p;
+        }
 
         #endregion
     }

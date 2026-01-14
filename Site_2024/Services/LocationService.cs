@@ -200,6 +200,7 @@ namespace Site_2024.Web.Api.Services
             location.Section = new Section();
             location.Box = new Box();
 
+            location.Id = reader.GetSafeInt32(startingIndex++);
             location.Site.Id = reader.GetSafeInt32(startingIndex++);
             location.Site.Name = reader.GetSafeString(startingIndex++);
             location.Area.Id = reader.GetSafeInt32(startingIndex++);

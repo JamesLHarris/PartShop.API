@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
-using Site_2024.Web.Api.Services;
+using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
+using Site_2024.Web.Api.Services;
 using System;
 using System.Collections.Generic;
-using Site_2024.Web.Api.Requests;
 
 namespace Site_2024.Web.Api.Controllers
 {
@@ -14,17 +14,15 @@ namespace Site_2024.Web.Api.Controllers
     public class SectionApiController : BaseApiController
     {
         private readonly ISectionService _service;
-        private ILogger _logger;
 
-        public SectionApiController(ISectionService service
-        , ILogger<SectionApiController> logger) : base(logger)
+        public SectionApiController(ISectionService service, ILogger<SectionApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
         }
 
+        // GET api/sections/all
         [HttpGet("all")]
-        public ActionResult<ItemResponse<List<Section>>> GetSectionfAll()
+        public ActionResult<ItemResponse<List<Section>>> GetSectionAll()
         {
             int code = 200;
             BaseResponse response;
@@ -46,18 +44,20 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
             return StatusCode(code, response);
         }
 
+        // Drill-down: Sections by ShelfId
+        // GET api/sections/section/5  (where 5 is a shelfId)
         [HttpGet("section/{id:int}")]
         public ActionResult<ItemResponse<List<Section>>> GetSectionByShelfId(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
@@ -77,35 +77,32 @@ namespace Site_2024.Web.Api.Controllers
             {
                 code = 500;
                 base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse($"Generic Error: {ex.Message}");
+                response = new ErrorResponse(ex.Message);
             }
 
             return StatusCode(code, response);
         }
 
+        // POST api/sections/new-section
         [HttpPost("new-section")]
-        public ActionResult<ItemResponse<int>> Section(SectionAddRequest model)
+        public ActionResult<ItemResponse<int>> Add([FromBody] SectionAddRequest model)
         {
-            ObjectResult result = null;
+            int code = 201;
+            BaseResponse response;
 
             try
             {
-
                 int id = _service.AddSection(model);
-
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
-
-                result = Created201(response);
+                response = new ItemResponse<int> { Item = id };
             }
             catch (Exception ex)
             {
+                code = 500;
                 base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
+                response = new ErrorResponse(ex.Message);
             }
-            return result;
+
+            return StatusCode(code, response);
         }
     }
 }

@@ -1,71 +1,68 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
+using System;
+using System.Collections.Generic;
 
 namespace Site_2024.Web.Api.Controllers
 {
-    [Route("api/locations")]
     [ApiController]
+    [Route("api/locations")]
     public class LocationApiController : BaseApiController
     {
-        private ILocationService _service;
-        private ILogger _logger;
+        private readonly ILocationService _service;
 
-        public LocationApiController(ILocationService service
-        , ILogger<LocationApiController> logger) : base(logger)
+        public LocationApiController(ILocationService service, ILogger<LocationApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
         }
 
         [HttpPost("new-location")]
-        public ActionResult<ItemResponse<int>> Add(LocationAddRequest model)
+        public ActionResult<ItemResponse<int>> Add([FromBody] LocationAddRequest model)
         {
-            ObjectResult result = null;
+            int code = 201;
+            BaseResponse response;
 
             try
             {
-
                 int id = _service.AddLocation(model);
-
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
-
-                result = Created201(response);
+                response = new ItemResponse<int> { Item = id };
             }
             catch (Exception ex)
             {
+                code = 500;
                 base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
+                response = new ErrorResponse(ex.Message);
             }
-            return result;
+
+            return StatusCode(code, response);
         }
 
+        // Keep route as-is, but bind id explicitly so route + model can't drift
         [HttpPut("{id:int}")]
-        public ActionResult<SuccessResponse> Update(LocationUpdateRequest model)
+        public ActionResult<SuccessResponse> Update(int id, [FromBody] LocationUpdateRequest model)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                //int currentUserId = _authService.GetCurrentUserId();
-                //currentUserId   <----- THIS WILL BE USED FOR A LATER UPDATE 
+                // Ensure route id is the source of truth
+                model.Id = id;
 
                 _service.UpdateLocation(model);
-
                 response = new SuccessResponse();
             }
             catch (Exception ex)
             {
                 code = 500;
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
+
             return StatusCode(code, response);
         }
 
@@ -73,28 +70,29 @@ namespace Site_2024.Web.Api.Controllers
         public ActionResult<ItemResponse<List<Location>>> GetLocationsAll()
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                List<Location> pages = _service.GetLocationsAll();
+                List<Location> list = _service.GetLocationsAll();
 
-                if (pages == null)
+                if (list == null || list.Count == 0)
                 {
                     code = 404;
                     response = new ErrorResponse("App Resource not found.");
                 }
                 else
                 {
-                    response = new ItemResponse<List<Location>> { Item = pages };
+                    response = new ItemResponse<List<Location>> { Item = list };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
-                response = new ErrorResponse(ex.Message);
                 base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
             }
+
             return StatusCode(code, response);
         }
 
@@ -102,29 +100,29 @@ namespace Site_2024.Web.Api.Controllers
         public ActionResult<ItemResponse<Location>> GetLocationById(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                Location course = _service.GetLocationById(id);
+                Location location = _service.GetLocationById(id);
 
-                if (course == null)
+                if (location == null)
                 {
                     code = 404;
                     response = new ErrorResponse("Not found.");
                 }
                 else
                 {
-                    response = new ItemResponse<Location> { Item = course };
+                    response = new ItemResponse<Location> { Item = location };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
                 base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse($"Generic Error: {ex.Message}");
-
+                response = new ErrorResponse(ex.Message);
             }
+
             return StatusCode(code, response);
         }
 
@@ -151,7 +149,7 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
@@ -162,24 +160,22 @@ namespace Site_2024.Web.Api.Controllers
         public ActionResult<SuccessResponse> Delete(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
                 _service.DeleteLocation(id);
-
                 response = new SuccessResponse();
             }
             catch (Exception ex)
             {
                 code = 500;
-
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
-
             }
 
             return StatusCode(code, response);
         }
-
     }
 }
+

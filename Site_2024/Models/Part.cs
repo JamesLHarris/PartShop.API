@@ -14,7 +14,7 @@ namespace Site_2024.Web.Api.Models
         public bool Rusted { get; set; }
         public bool Tested { get; set; }
         public string Description { get; set; }
-        public double Price { get; set; }
+        public decimal Price { get; set; }
         public Location Location { get; set; }
         public string Image {  get; set; }
         public Available Available { get; set; }

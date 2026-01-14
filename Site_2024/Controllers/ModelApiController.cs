@@ -1,142 +1,65 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Site_2024.Web.Api.Constructors;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
+using System;
+using System.Collections.Generic;
 
 namespace Site_2024.Web.Api.Controllers
 {
-    [Route("api/models")]
     [ApiController]
+    [Route("api/models")]
     public class ModelApiController : BaseApiController
     {
-        private IModelService _service;
-        private ILogger _logger;
+        private readonly IModelService _service;
 
-        public ModelApiController(IModelService service
-        , ILogger<ModelApiController> logger) : base(logger)
+        public ModelApiController(IModelService service, ILogger<ModelApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
         }
 
-        [HttpPost("new-model")]
-        public ActionResult<ItemResponse<int>> Add(ModelAddRequest model)
-        {
-            ObjectResult result = null;
-
-            try
-            {
-
-                int id = _service.AddModel(model);
-
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
-
-                result = Created201(response);
-            }
-            catch (Exception ex)
-            {
-                base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
-            }
-            return result;
-        }
-
-        [HttpPut("{id:int}")]
-        public ActionResult<SuccessResponse> Update(ModelUpdateRequest model)
-        {
-            int code = 200;
-            BaseResponse response = null;
-
-            try
-            {
-                //int currentUserId = _authService.GetCurrentUserId();
-                //currentUserId   <----- THIS WILL BE USED FOR A LATER UPDATE 
-
-                _service.UpdateModel(model);
-
-                response = new SuccessResponse();
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                response = new ErrorResponse(ex.Message);
-            }
-            return StatusCode(code, response);
-        }
-
-        [HttpGet("available")]
-        public ActionResult<ItemResponse<List<Model>>> GetModelsAll()
-        {
-            int code = 200;
-            BaseResponse response = null;
-
-            try
-            {
-                List<Model> pages = _service.GetModelsAll();
-
-                if (pages == null)
-                {
-                    code = 404;
-                    response = new ErrorResponse("App Resource not found.");
-                }
-                else
-                {
-                    response = new ItemResponse<List<Model>> { Item = pages };
-                }
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                response = new ErrorResponse(ex.Message);
-                base.Logger.LogError(ex.ToString());
-            }
-            return StatusCode(code, response);
-        }
-
-        [HttpGet("available/{id:int}")]
-        public ActionResult<ItemResponse<Model>> GetModelById(int id)
-        {
-            int code = 200;
-            BaseResponse response = null;
-
-            try
-            {
-                Model course = _service.GetModelById(id);
-
-                if (course == null)
-                {
-                    code = 404;
-                    response = new ErrorResponse("Not found.");
-                }
-                else
-                {
-                    response = new ItemResponse<Model> { Item = course };
-                }
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse($"Generic Error: {ex.Message}");
-
-            }
-            return StatusCode(code, response);
-        }
-        [HttpGet("make/{id:int}")]
-        public ActionResult<ItemResponse<List<Model>>> GetByMakeId(int id)
+        [HttpGet("all")]
+        public ActionResult<ItemResponse<List<Model>>> GetAll()
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                List<Model> list = _service.GetByMakeId(id);
+                List<Model> list = _service.GetModelsAll();
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("No models found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Model>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
+        // Drill-down: Models by MakeId
+        [HttpGet("make/{makeId:int}")]
+        public ActionResult<ItemResponse<List<Model>>> GetByMakeId(int makeId)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                List<Model> list = _service.GetByMakeId(makeId);
 
                 if (list == null || list.Count == 0)
                 {
@@ -151,7 +74,58 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpGet("{id:int}")]
+        public ActionResult<ItemResponse<Model>> GetById(int id)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                Model item = _service.GetModelById(id);
+
+                if (item == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Model> { Item = item };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpPost]
+        public ActionResult<ItemResponse<int>> Add([FromBody] ModelAddRequest model)
+        {
+            int code = 201;
+            BaseResponse response;
+
+            try
+            {
+                int id = _service.AddModel(model);
+                response = new ItemResponse<int> { Item = id };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
@@ -162,24 +136,22 @@ namespace Site_2024.Web.Api.Controllers
         public ActionResult<SuccessResponse> Delete(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
                 _service.DeleteModel(id);
-
                 response = new SuccessResponse();
             }
             catch (Exception ex)
             {
                 code = 500;
-
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
-
             }
 
             return StatusCode(code, response);
         }
-
     }
 }
+

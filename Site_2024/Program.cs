@@ -75,6 +75,7 @@ builder.Services.AddSingleton<ISectionService, SectionService>();
 builder.Services.AddSingleton<IBoxService, BoxService>();
 builder.Services.AddSingleton<IAreaService, AreaService>();
 builder.Services.AddSingleton<IAisleService, AisleService>();
+builder.Services.AddSingleton<IAuditService, AuditService>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();

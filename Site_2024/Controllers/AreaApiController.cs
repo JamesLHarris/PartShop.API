@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
-using Site_2024.Web.Api.Services;
+using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
+using Site_2024.Web.Api.Services;
 using System;
 using System.Collections.Generic;
-using Site_2024.Web.Api.Requests;
 
 namespace Site_2024.Web.Api.Controllers
 {
@@ -14,13 +14,10 @@ namespace Site_2024.Web.Api.Controllers
     public class AreaApiController : BaseApiController
     {
         private readonly IAreaService _service;
-        private ILogger _logger;
 
-        public AreaApiController(IAreaService service
-        , ILogger<AreaApiController> logger) : base(logger)
+        public AreaApiController(IAreaService service, ILogger<AreaApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
         }
 
         [HttpGet("all")]
@@ -46,17 +43,21 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
             return StatusCode(code, response);
         }
+
+        // Keep existing route so nothing breaks:
         [HttpGet("area/{id:int}")]
-        public ActionResult<ItemResponse<List<Area>>> GetAreaBySiteId(int id)
+        // Add clear alias route (safe Week-1 improvement):
+        [HttpGet("site/{id:int}")]
+        public ActionResult<ItemResponse<List<Area>>> GetBySiteId(int id)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
@@ -76,36 +77,33 @@ namespace Site_2024.Web.Api.Controllers
             {
                 code = 500;
                 base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse($"Generic Error: {ex.Message}");
+                response = new ErrorResponse(ex.Message);
             }
 
             return StatusCode(code, response);
         }
 
         [HttpPost("new-area")]
-        public ActionResult<ItemResponse<int>> Add(AreaAddRequest model)
+        public ActionResult<ItemResponse<int>> Create([FromBody] AreaAddRequest model)
         {
-            ObjectResult result = null;
+            int code = 201;
+            BaseResponse response;
 
             try
             {
-
                 int id = _service.AddArea(model);
-
-                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
-
-                result = Created201(response);
+                response = new ItemResponse<int> { Item = id };
             }
             catch (Exception ex)
             {
+                code = 500;
                 base.Logger.LogError(ex.ToString());
-
-                ErrorResponse response = new ErrorResponse(ex.Message);
-
-                result = StatusCode(500, response);
+                response = new ErrorResponse(ex.Message);
             }
-            return result;
+
+            return StatusCode(code, response);
         }
     }
 }
+
 

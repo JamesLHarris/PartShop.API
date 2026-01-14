@@ -1,14 +1,11 @@
-﻿using Azure;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
+﻿using Microsoft.AspNetCore.Mvc;
 using Site_2024.Web.Api.Interfaces;
-using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Models.User;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
+using System;
+using System.Threading.Tasks;
 
 namespace Site_2024.Web.Api.Controllers
 {
@@ -16,23 +13,22 @@ namespace Site_2024.Web.Api.Controllers
     [ApiController]
     public class LoginApiController : BaseApiController
     {
-        private IUserService _service;
-        private ILogger _logger;
-        private IAuthenticationService<IUserAuthData> _authService;
+        private readonly IUserService _service;
+        private readonly IAuthenticationService<IUserAuthData> _authService;
 
-        public LoginApiController(IUserService service
-            ,IAuthenticationService<IUserAuthData> authService
-            ,ILogger<LoginApiController> logger) : base(logger)
+        public LoginApiController(
+            IUserService service,
+            IAuthenticationService<IUserAuthData> authService,
+            ILogger<LoginApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
             _authService = authService;
         }
 
         [HttpPost("register")]
         public ActionResult<ItemResponse<int>> Register([FromBody] UserRegisterRequest model)
         {
-            int code = 200;
+            int code = 201;
             BaseResponse response;
 
             try
@@ -43,7 +39,7 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
@@ -51,7 +47,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<BaseResponse>> Login([FromBody] UserLoginRequest model)
+        public async Task<ActionResult<ItemResponse<int>>> Login([FromBody] UserLoginRequest model)
         {
             int code = 200;
             BaseResponse response;
@@ -67,93 +63,113 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    int userId = _service.GetUserIdByEmail(model.Email); // <== make sure this exists
+                    // Assumes this exists and is stable in your service layer
+                    int userId = _service.GetUserIdByEmail(model.Email);
                     response = new ItemResponse<int> { Item = userId };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
-                Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
             return StatusCode(code, response);
         }
 
+        // GET api/login/me
         [HttpGet("me")]
-        public ActionResult<IUserAuthData> GetCurrentUser()
-        {
-            var user = _authService.GetCurrentUser();
-
-            if (user == null)
-            {
-                return Unauthorized("Not logged in or cookie not read");
-            }
-
-            return Ok(user);
-        }
-
-        [HttpGet("current")]
-        public ActionResult<ItemResponse<User>> GetUserByEmail(string email)
+        public ActionResult<ItemResponse<IUserAuthData>> GetCurrentUser()
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                User course = _service.GetUserByEmail(email);
+                IUserAuthData user = _authService.GetCurrentUser();
 
-                if (course == null)
+                if (user == null)
                 {
-                    code = 404;
-                    response = new ErrorResponse("Not found.");
+                    code = 401;
+                    response = new ErrorResponse("Not logged in.");
                 }
                 else
                 {
-                    response = new ItemResponse<User> { Item = course };
+                    response = new ItemResponse<IUserAuthData> { Item = user };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
                 base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse($"Generic Error: {ex.Message}");
-
+                response = new ErrorResponse(ex.Message);
             }
+
             return StatusCode(code, response);
         }
 
-
-        [HttpGet("logout")]
-        public async Task<ActionResult<SuccessResponse>> Logout()
+        // GET api/login/current?email=test@test.com
+        [HttpGet("current")]
+        public ActionResult<ItemResponse<User>> GetUserByEmail([FromQuery] string email)
         {
             int code = 200;
-            BaseResponse response = null;
+            BaseResponse response;
 
             try
             {
-                bool isLoggedIn = _authService.IsLoggedIn();
+                User user = _service.GetUserByEmail(email);
 
-                if (isLoggedIn)
+                if (user == null)
                 {
-                    await _authService.LogOutAsync();
-                    response = new SuccessResponse();
+                    code = 404;
+                    response = new ErrorResponse("Not found.");
                 }
                 else
                 {
-                    code = 400;
-                    response = new ErrorResponse("App resource not found.");
-
+                    response = new ItemResponse<User> { Item = user };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
+
             return StatusCode(code, response);
         }
 
+        // Keeping your route as-is (Week 1: don't break anything)
+        [HttpGet("logout")]
+        public async Task<ActionResult<SuccessResponse>> Logout()
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                bool isLoggedIn = _authService.IsLoggedIn();
+
+                if (!isLoggedIn)
+                {
+                    code = 401;
+                    response = new ErrorResponse("Not logged in.");
+                }
+                else
+                {
+                    await _authService.LogOutAsync();
+                    response = new SuccessResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
     }
 }

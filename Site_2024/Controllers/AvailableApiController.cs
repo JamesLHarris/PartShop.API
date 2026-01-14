@@ -13,12 +13,10 @@ namespace Site_2024.Web.Api.Controllers
     public class AvailableApiController : BaseApiController
     {
         private readonly IAvailableService _service;
-        private readonly ILogger<AvailableApiController> _logger;
 
         public AvailableApiController(IAvailableService service, ILogger<AvailableApiController> logger) : base(logger)
         {
             _service = service;
-            _logger = logger;
         }
 
         [HttpGet("all")]
@@ -44,7 +42,7 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                _logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
@@ -59,7 +57,7 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
-                var item = _service.GetById(id);
+                Available item = _service.GetById(id);
 
                 if (item == null)
                 {
@@ -74,17 +72,18 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                _logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
             return StatusCode(code, response);
         }
 
+        // Keeping your current request contract: raw string body (status)
         [HttpPost]
         public ActionResult<ItemResponse<int>> Add([FromBody] string status)
         {
-            int code = 200;
+            int code = 201;
             BaseResponse response;
 
             try
@@ -95,7 +94,7 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                _logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
@@ -116,7 +115,7 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                _logger.LogError(ex.ToString());
+                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
             }
 
