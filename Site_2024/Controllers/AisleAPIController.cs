@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
@@ -21,6 +22,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("all")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<Aisle>>> GetAisleAll()
         {
             int code = 200;
@@ -51,6 +53,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("aisle/{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<Aisle>>> GetAisleByAreaId(int id)
         {
             int code = 200;
@@ -81,6 +84,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost("new-aisle")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<int>> CreateAisle([FromBody] AisleAddRequest model)
         {
             int code = 201;

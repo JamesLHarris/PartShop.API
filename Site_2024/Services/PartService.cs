@@ -8,6 +8,7 @@ using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Requests;
 using Microsoft.Extensions.Options;
 using Site_2024.Web.Api.Configurations;
+using Microsoft.Extensions.Logging;
 
 
 namespace Site_2024.Web.Api.Services
@@ -16,12 +17,14 @@ namespace Site_2024.Web.Api.Services
     {
         private IDataProvider _data;
         private readonly Site_2024.Web.Api.Configurations.StaticFileOptions _staticFileOptions;
+        private readonly ILogger _logger;
 
-        public PartService(IDataProvider data, IOptions<Site_2024.Web.Api.Configurations.StaticFileOptions> staticFileOptions)
+        public PartService(ILogger<PartService> logger,IDataProvider data, IOptions<Site_2024.Web.Api.Configurations.StaticFileOptions> staticFileOptions)
 
         {
             _data = data;
             _staticFileOptions = staticFileOptions.Value;
+            _logger = logger;
         }
 
         #region ---GET---
@@ -343,24 +346,30 @@ namespace Site_2024.Web.Api.Services
             int id = 0;
             string procName = "[dbo].[Parts_Insert]";
 
-            _data.ExecuteNonQuery(procName,
+            _data.ExecuteCmd(procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
-                    model.UserId = userId; // explicitly assign
+                    model.UserId = userId;
                     AddCommonPartsParams(model, col);
 
+                    // REQUIRED because proc signature has: @Id INT OUTPUT
                     SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
                     idOut.Direction = ParameterDirection.Output;
                     col.Add(idOut);
                 },
-                returnParameters: delegate (SqlParameterCollection returnCollection)
+                singleRecordMapper: delegate (IDataReader reader, short set)
                 {
-                    object oId = returnCollection["@Id"].Value;
-                    int.TryParse(oId.ToString(), out id);
+                    // Comes from: SELECT @Id AS Id;
+                    if (!reader.IsDBNull(0))
+                    {
+                        id = reader.GetInt32(0);
+                    }
                 });
 
             return id;
         }
+
+
 
 
         public void UpdatePart(PartUpdateRequest model)

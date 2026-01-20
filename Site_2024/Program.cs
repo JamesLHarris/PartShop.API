@@ -41,23 +41,36 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/api/user/login";  // Define login path
+        options.LoginPath = "/api/user/login";
         options.Cookie.SameSite = SameSiteMode.None;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.LogoutPath = "/Account/Logout";  // Define logout path
-        options.AccessDeniedPath = "/Account/AccessDenied";  // Define access denied path
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);  // Expire after 60 minutes
-        options.SlidingExpiration = true; // keeps you logged in during activity
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+        options.SlidingExpiration = true;
+
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = ctx =>
+            {
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = ctx =>
+            {
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+        };
     });
+
 
 
 builder.Services.AddAuthorization(options =>
 {
-    // granular write permissions for your parts endpoints
-    options.AddPolicy("PartsWrite", p => p.RequireRole("Admin Low", "Admin High"));
-    // add more as needed:
-    options.AddPolicy("UsersAdmin", p => p.RequireRole("Admin", "UserAdmin"));
+    options.AddPolicy("PartsWrite", p => p.RequireRole("AdminLow", "AdminHigh"));
+    options.AddPolicy("PartsDelete", p => p.RequireRole("AdminHigh"));
+    options.AddPolicy("AdminAction", p => p.RequireRole("AdminLow", "AdminHigh")); // if you want broad internal audit access
 });
+
 
 // Configure DbContext and other services
 string connString = builder.Configuration.GetConnectionString("connMSSQL");

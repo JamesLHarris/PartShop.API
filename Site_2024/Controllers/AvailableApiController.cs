@@ -5,6 +5,7 @@ using Site_2024.Web.Api.Services;
 using Site_2024.Web.Api.Responses;
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Site_2024.Web.Api.Controllers
 {
@@ -81,6 +82,7 @@ namespace Site_2024.Web.Api.Controllers
 
         // Keeping your current request contract: raw string body (status)
         [HttpPost]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<int>> Add([FromBody] string status)
         {
             int code = 201;
@@ -102,6 +104,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<SuccessResponse> Delete(int id)
         {
             int code = 200;

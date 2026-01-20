@@ -1,38 +1,39 @@
-﻿using Site_2024.Web.Api.Models;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Site_2024.Web.Api.Requests
 {
     public class PartAddRequest
     {
-        [Required]
-        [StringLength(500, MinimumLength = 2)]
+        [Required, StringLength(128, MinimumLength = 2)]
         public string Name { get; set; }
-        [Required]
+
+        [Range(1, int.MaxValue)]
         public int CatagoryId { get; set; }
-        [Required]
+
+        [Range(1, int.MaxValue)]
         public int MakeId { get; set; }
-        [Required]
+
+        [Range(1900, 2100)]
         public int Year { get; set; }
-        [Required]
-        [StringLength(500, MinimumLength = 2)]
+
+        [Required, StringLength(128, MinimumLength = 2)]
         public string PartNumber { get; set; }
 
         public bool Rusted { get; set; }
         public bool Tested { get; set; }
-        [Required]
-        [StringLength(500, MinimumLength = 2)]
+
+        [Required, StringLength(4000, MinimumLength = 2)]
         public string Description { get; set; }
-        [Required]
+
+        [Range(typeof(decimal), "0.01", "99999999.99")]
         public decimal Price { get; set; }
-        [Required]
+
+        [Range(1, int.MaxValue)]
         public int LocationId { get; set; }
 
-        [StringLength(500, MinimumLength = 2)]
+        // server-assigned
         public string? Image { get; set; }
-        [Required]
         public int AvailableId { get; set; }
-        [Required]
         public int UserId { get; set; }
     }
 }

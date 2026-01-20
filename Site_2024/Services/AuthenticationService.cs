@@ -17,29 +17,44 @@ namespace Site_2024.Web.Api.Services
 
         public async Task LogInAsync(IUserAuthData user)
         {
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email)
+                new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
             };
 
-            var identity = new ClaimsIdentity(claims, "login");
+            // Add role claim (canonicalized) so policies work
+            if (!string.IsNullOrWhiteSpace(user.RoleName))
+            {
+                claims.Add(new Claim(ClaimTypes.Role, CanonicalizeRole(user.RoleName)));
+            }
 
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
-            await _httpContextAccessor.HttpContext.SignInAsync(
+            var props = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                IssuedUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddHours(1),
+                AllowRefresh = true
+            };
+
+            await _httpContextAccessor.HttpContext!.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
-                principal);
+                principal,
+                props);
         }
 
         public async Task LogOutAsync()
         {
-            await _httpContextAccessor.HttpContext.SignOutAsync();
+            await _httpContextAccessor.HttpContext!.SignOutAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
         }
 
         public bool IsLoggedIn()
         {
-            return _httpContextAccessor.HttpContext.User.Identity.IsAuthenticated;
+            return _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated == true;
         }
 
         public IUserAuthData GetCurrentUser()
@@ -53,6 +68,7 @@ namespace Site_2024.Web.Api.Services
 
             var idClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var emailClaim = context.User.FindFirst(ClaimTypes.Email)?.Value;
+            var roleClaim = context.User.FindFirst(ClaimTypes.Role)?.Value;
 
             if (!int.TryParse(idClaim, out int userId))
             {
@@ -62,42 +78,20 @@ namespace Site_2024.Web.Api.Services
             return new UserAuthData
             {
                 Id = userId,
-                Email = emailClaim
+                Email = emailClaim,
+                RoleName = roleClaim // this will be canonical role
             };
         }
 
-public async Task LogInAsync(IUserAuthData user, IEnumerable<string> roles)
-    {
-        var claims = new List<Claim>
-    {
-        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new(ClaimTypes.Email, user.Email)
-    };
-
-        if (roles != null)
+        private static string CanonicalizeRole(string roleName)
         {
-            foreach (var r in roles)
+            // Map DB role names to stable code roles
+            return roleName switch
             {
-                if (!string.IsNullOrWhiteSpace(r))
-                    claims.Add(new Claim(ClaimTypes.Role, r));
-            }
+                "Admin Low" => "AdminLow",
+                "Admin High" => "AdminHigh",
+                _ => roleName.Replace(" ", "") // fallback, but ideally map explicitly
+            };
         }
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        var props = new AuthenticationProperties
-        {
-            IsPersistent = true,
-            IssuedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.UtcNow.AddHours(1),
-            AllowRefresh = true
-        };
-
-        await _httpContextAccessor.HttpContext!.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme, principal, props);
     }
-
-
-}
 }

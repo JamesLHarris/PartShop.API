@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Interfaces;
@@ -25,6 +26,7 @@ namespace Site_2024.Web.Api.Controllers
         // FIX: remove leading "/" so it respects controller route prefix
         // GET api/partsaudit/recent?pageIndex=0&pageSize=10
         [HttpGet("recent")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Paged<PartAudit>>> GetRecentPaginated(int pageIndex, int pageSize)
         {
             int code = 200;
@@ -56,6 +58,7 @@ namespace Site_2024.Web.Api.Controllers
 
         // GET api/partsaudit/part/123?pageIndex=0&pageSize=10
         [HttpGet("part/{partId:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Paged<PartAudit>>> GetByPartIdPaginated(int partId, int pageIndex, int pageSize)
         {
             int code = 200;
@@ -87,6 +90,7 @@ namespace Site_2024.Web.Api.Controllers
 
         // GET api/partsaudit/recent/all?maxRows=25
         [HttpGet("recent/all")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<PartAudit>> GetRecent(int maxRows)
         {
             int code = 200;
@@ -118,6 +122,7 @@ namespace Site_2024.Web.Api.Controllers
 
         // GET api/partsaudit/single/123?maxRows=25
         [HttpGet("single/{partId:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<PartAudit>> GetSingleByPartId(int partId, int maxRows)
         {
             int code = 200;

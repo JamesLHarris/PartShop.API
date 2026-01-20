@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
@@ -21,6 +22,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("all")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<Area>>> GetAreasAll()
         {
             int code = 200;
@@ -54,6 +56,7 @@ namespace Site_2024.Web.Api.Controllers
         [HttpGet("area/{id:int}")]
         // Add clear alias route (safe Week-1 improvement):
         [HttpGet("site/{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<Area>>> GetBySiteId(int id)
         {
             int code = 200;
@@ -84,6 +87,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost("new-area")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<int>> Create([FromBody] AreaAddRequest model)
         {
             int code = 201;

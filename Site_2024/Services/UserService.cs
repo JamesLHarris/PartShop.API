@@ -85,7 +85,9 @@ namespace Site_2024.Web.Api.Services
                 {
                     Id = reader.GetInt32(0),
                     Email = reader.GetString(2),
-                    PasswordHash = reader.GetString(3)
+                    PasswordHash = reader.GetString(3),
+                    RoleId = reader.GetInt32(5),
+                    RoleName = reader.GetString(6)
                 };
             });
 

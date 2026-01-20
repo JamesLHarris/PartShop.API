@@ -37,7 +37,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost("add-new")]
-        [Authorize]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<int>> Add([FromForm] PartAddRequest model, IFormFile? image)
         {
             int code = 201;
@@ -45,17 +45,42 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
-                string? imageUrl = null;
+                var user = _authService.GetCurrentUser();
+                if (user == null)
+                {
+                    code = 401;
+                    response = new ErrorResponse("You must be logged in.");
+                    return StatusCode(code, response);
+                }
 
+                // Basic file validation (tighten later if needed)
+                string? imageUrl = null;
                 if (image != null && image.Length > 0)
                 {
+                    string ext = Path.GetExtension(image.FileName).ToLowerInvariant();
+                    string[] allowed = { ".jpg", ".jpeg", ".png", ".webp" };
+
+                    if (!allowed.Contains(ext))
+                    {
+                        code = 400;
+                        response = new ErrorResponse("Invalid image type. Allowed: jpg, jpeg, png, webp.");
+                        return StatusCode(code, response);
+                    }
+
+                    // 5MB cap (adjust if you want)
+                    const long maxBytes = 5 * 1024 * 1024;
+                    if (image.Length > maxBytes)
+                    {
+                        code = 400;
+                        response = new ErrorResponse("Image too large. Max size is 5MB.");
+                        return StatusCode(code, response);
+                    }
+
                     string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
                     Directory.CreateDirectory(uploadsFolder);
 
-                    string fileName = $"{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
+                    string fileName = $"{Guid.NewGuid()}{ext}";
                     string filePath = Path.Combine(uploadsFolder, fileName);
-
-                    base.Logger.LogInformation("WebRootPath: {Path}", _webHostEnvironment.WebRootPath);
 
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
@@ -65,31 +90,27 @@ namespace Site_2024.Web.Api.Controllers
                     imageUrl = $"/uploads/items/{fileName}";
                 }
 
-                model.Image = imageUrl;
-                model.AvailableId = 1;
+                model.Image = imageUrl;      // can be null now (SQL fixed)
+                model.AvailableId = 1;       // server rule: new parts default to Available
+                int userId = user.Id;
 
-                var user = _authService.GetCurrentUser();
-                if (user == null)
-                {
-                    code = 401;
-                    response = new ErrorResponse("You must be logged in.");
-                    return StatusCode(code, response);
-                }
+                int id = _service.Insert(model, userId);
 
-                int id = _service.Insert(model, user.Id);
                 response = new ItemResponse<int> { Item = id };
             }
             catch (Exception ex)
             {
                 code = 500;
-                base.Logger.LogError(ex.ToString());
                 response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
             }
 
             return StatusCode(code, response);
         }
 
+
         [HttpPut("{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<SuccessResponse> Update(int id, [FromBody] PartUpdateRequest model)
         {
             int code = 200;
@@ -114,6 +135,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPatch("location/{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<SuccessResponse> UpdateLocation(int id, [FromBody] PartLocationUpdateRequest model)
         {
             int code = 200;
@@ -138,6 +160,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPatch("{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<BaseResponse> UpdatePart(int id, [FromBody] PartPatchRequest model)
         {
             int code = 200;
@@ -159,6 +182,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("available/admin")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Paged<Part>>> GetAvailablePaginated(int pageIndex, int pageSize)
         {
             int code = 200;
@@ -220,6 +244,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("model/{modelId:int}/admin")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Paged<Part>>> GetByModelAdmin(int pageIndex, int pageSize, int modelId)
         {
             int code = 200;
@@ -280,6 +305,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("category/{categoryId:int}/admin")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Paged<Part>>> GetByCategoryAdmin(int pageIndex, int pageSize, int categoryId)
         {
             int code = 200;
@@ -341,6 +367,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("stock")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Paged<Part>>> GetPartsPaginated(int pageIndex, int pageSize)
         {
             int code = 200;
@@ -371,6 +398,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("admin/{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<Part>> GetPartsById(int id)
         {
             int code = 200;
@@ -452,6 +480,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "PartsDelete")]
         public ActionResult<SuccessResponse> Delete(int id)
         {
             int code = 200;

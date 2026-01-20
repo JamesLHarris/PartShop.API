@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
@@ -22,6 +23,7 @@ namespace Site_2024.Web.Api.Controllers
 
         // GET api/sections/all
         [HttpGet("all")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<Section>>> GetSectionAll()
         {
             int code = 200;
@@ -54,6 +56,7 @@ namespace Site_2024.Web.Api.Controllers
         // Drill-down: Sections by ShelfId
         // GET api/sections/section/5  (where 5 is a shelfId)
         [HttpGet("section/{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<Section>>> GetSectionByShelfId(int id)
         {
             int code = 200;
@@ -85,6 +88,7 @@ namespace Site_2024.Web.Api.Controllers
 
         // POST api/sections/new-section
         [HttpPost("new-section")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<int>> Add([FromBody] SectionAddRequest model)
         {
             int code = 201;

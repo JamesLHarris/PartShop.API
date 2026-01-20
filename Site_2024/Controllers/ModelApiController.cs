@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
@@ -112,6 +113,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<int>> Add([FromBody] ModelAddRequest model)
         {
             int code = 201;
@@ -133,6 +135,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<SuccessResponse> Delete(int id)
         {
             int code = 200;
