@@ -21,17 +21,20 @@ namespace Site_2024.Web.Api.Controllers
     public class PartsApiController : BaseApiController
     {
         private readonly IPartService _service;
+        private readonly ILocationService _locationService;
         private readonly IAuthenticationService<IUserAuthData> _authService;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
         public PartsApiController(
             IPartService service,
+            ILocationService locationService,
             ILogger<PartsApiController> logger,
             IAuthenticationService<IUserAuthData> authService,
             IWebHostEnvironment webHostEnvironment
         ) : base(logger)
         {
             _service = service;
+            _locationService = locationService;
             _authService = authService;
             _webHostEnvironment = webHostEnvironment;
         }
@@ -53,7 +56,16 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, response);
                 }
 
-                // Basic file validation (tighten later if needed)
+                // Validate LocationId exists (Location table is already leaf-level: includes boxId)
+                var loc = _locationService.GetLocationById(model.LocationId);
+                if (loc == null)
+                {
+                    code = 400;
+                    response = new ErrorResponse("Invalid LocationId.");
+                    return StatusCode(code, response);
+                }
+
+                // Basic file validation
                 string? imageUrl = null;
                 if (image != null && image.Length > 0)
                 {
@@ -146,6 +158,14 @@ namespace Site_2024.Web.Api.Controllers
                 // Route id is source of truth (prevents drift)
                 model.Id = id;
 
+                var loc = _locationService.GetLocationById(model.LocationId);
+                if (loc == null)
+                {
+                    code = 400;
+                    response = new ErrorResponse("Invalid LocationId.");
+                    return StatusCode(code, response);
+                }
+
                 _service.UpdatePartLocation(model);
                 response = new SuccessResponse();
             }
@@ -158,6 +178,68 @@ namespace Site_2024.Web.Api.Controllers
 
             return StatusCode(code, response);
         }
+
+        // Separate image upload endpoint (keeps Parts_Insert clean)
+        [HttpPost("{id:int}/image")]
+        [Consumes("multipart/form-data")]
+        [Authorize(Policy = "AdminAction")]
+        public ActionResult<BaseResponse> UploadImage(int id, [FromForm] Requests.Parts.PartImageUploadRequest model)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                IFormFile image = model.Image;
+
+                if (image == null || image.Length == 0)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Image is required."));
+                }
+
+                string ext = Path.GetExtension(image.FileName).ToLowerInvariant();
+                string[] allowed = { ".jpg", ".jpeg", ".png", ".webp" };
+                if (!allowed.Contains(ext))
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Invalid image type. Allowed: jpg, jpeg, png, webp."));
+                }
+
+                const long maxBytes = 5 * 1024 * 1024;
+                if (image.Length > maxBytes)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Image too large. Max size is 5MB."));
+                }
+
+                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
+                Directory.CreateDirectory(uploadsFolder);
+
+                string fileName = $"{Guid.NewGuid()}{ext}";
+                string filePath = Path.Combine(uploadsFolder, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    image.CopyTo(stream);
+                }
+
+                string imageUrl = $"/uploads/items/{fileName}";
+
+                _service.PatchPart(id, new PartPatchRequest { Image = imageUrl });
+
+                response = new ItemResponse<string> { Item = imageUrl };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
 
         [HttpPatch("{id:int}")]
         [Authorize(Policy = "AdminAction")]

@@ -2,10 +2,14 @@
 
 namespace Site_2024.Web.Api.Requests
 {
-    public class PartLocationUpdateRequest : PartAddRequest
+    public class PartLocationUpdateRequest
     {
         [Required]
         [Range(1, int.MaxValue)]
         public int Id { get; set; }
+
+        [Required]
+        [Range(1, int.MaxValue)]
+        public int LocationId { get; set; }
     }
 }

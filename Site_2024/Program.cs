@@ -8,6 +8,8 @@ using Site_2024.Web.Api.Services;
 using Site_2024.Web.Api.Models.User;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.Mvc;
+using Site_2024.Web.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
@@ -18,7 +20,21 @@ builder.Configuration
 
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Force model validation errors into our BaseResponse shape (instead of ProblemDetails)
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .SelectMany(kvp => kvp.Value.Errors.Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage)
+                    ? "Invalid request."
+                    : e.ErrorMessage))
+                .ToList();
+
+            return new BadRequestObjectResult(new ErrorResponse(errors));
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 // Add logging
@@ -108,6 +124,9 @@ if (app.Environment.IsDevelopment())
 
 
 Console.WriteLine("Static file middleware configured...");
+
+// Global exception handling (returns our standard BaseResponse shape)
+app.UseMiddleware<ApiExceptionMiddleware>();
 
 app.UseStaticFiles(new StaticFileOptions
 {
