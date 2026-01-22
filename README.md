@@ -32,3 +32,39 @@ admin inventory management, auditing, authentication, and frontend integration.
 
 ## Project Structure
 
+Site_2024/
+├── Controllers/
+├── Services/
+├── Interfaces/
+├── Models/
+├── Requests/
+├── Data/
+└── wwwroot/
+
+---
+
+## Getting Started
+
+### Prerequisites
+- .NET 6 SDK
+- SQL Server
+- Visual Studio 2022+
+
+### Setup
+1. Restore NuGet packages
+2. Configure connection string
+3. Run SQL stored procedures
+4. Start the API
+
+---
+
+## Status
+
+🚧 Active development  
+Target production release: **February 17**
+
+---
+
+## Owner
+
+James Harris
