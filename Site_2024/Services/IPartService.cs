@@ -17,9 +17,8 @@ namespace Site_2024.Web.Api.Services
         public Part GetPartById(int id);
         public Part GetPartByIdCustomer(int id);
         Paged<Part> GetPartsPaginated(int pageIndex, int pageSize);
-        void UpdatePart(PartUpdateRequest model);
-        void UpdatePartLocation(PartLocationUpdateRequest model);
-        public void PatchPart(int id, PartPatchRequest model /*, int userId */);
+        void PatchPart(int id, PartPatchRequest model, int userId);
+
         List<PartSearchResult> Search(PartSearchRequest model);
     }
 }

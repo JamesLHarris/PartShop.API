@@ -369,58 +369,30 @@ namespace Site_2024.Web.Api.Services
             return id;
         }
 
-
-
-
-        public void UpdatePart(PartUpdateRequest model)
-        {
-            string procName = "[dbo].[Parts_Update]";
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                AddCommonPartsParams(model, col);
-                col.AddWithValue("@Id", model.Id);
-            }
-            , returnParameters: null);
-        }
-
-        public void UpdatePartLocation(PartLocationUpdateRequest model)
-        {
-            string procName = "[dbo].[Parts_UpdateLocation]";
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                //AddCommonPartsParams(model, col);
-                col.AddWithValue("@Id", model.Id);
-                col.AddWithValue("@LocationId", model.LocationId);
-            }
-            , returnParameters: null);
-        }
-
-        public void PatchPart(int id, PartPatchRequest model /*, int userId */)
+        public void PatchPart(int id, PartPatchRequest model, int userId)
         {
             const string procName = "[dbo].[Parts_UpdatePartial]";
 
             _data.ExecuteNonQuery(procName, col =>
             {
                 col.Add("@Id", SqlDbType.Int).Value = id;
+
                 var pPrice = col.Add("@Price", SqlDbType.Decimal);
                 pPrice.Precision = 18;
                 pPrice.Scale = 2;
                 pPrice.Value = (object?)model.Price ?? DBNull.Value;
+
                 col.Add("@AvailableId", SqlDbType.Int).Value = (object?)model.AvailableId ?? DBNull.Value;
                 col.Add("@Rusted", SqlDbType.Bit).Value = (object?)model.Rusted ?? DBNull.Value;
                 col.Add("@Tested", SqlDbType.Bit).Value = (object?)model.Tested ?? DBNull.Value;
-                col.Add("@Description", SqlDbType.NVarChar, 4000).Value =
-                    (object?)model.Description ?? DBNull.Value;
-                col.Add("@Image", SqlDbType.NVarChar, 260).Value =
-                    (object?)model.Image ?? DBNull.Value; // adjust size to your column
-                col.Add("@LocationId", SqlDbType.Int).Value =
-                    (object?)model.LocationId ?? DBNull.Value;
-                // col.Add("@ModifiedBy", SqlDbType.Int).Value = userId;
+                col.Add("@Description", SqlDbType.NVarChar, 4000).Value = (object?)model.Description ?? DBNull.Value;
+                col.Add("@Image", SqlDbType.NVarChar, 260).Value = (object?)model.Image ?? DBNull.Value;
+                col.Add("@LocationId", SqlDbType.Int).Value = (object?)model.LocationId ?? DBNull.Value;
+
+                // Critical: always set LastMovedBy from server
+                col.Add("@LastMovedBy", SqlDbType.Int).Value = userId;
             });
         }
-
 
         #endregion
 

@@ -120,65 +120,6 @@ namespace Site_2024.Web.Api.Controllers
             return StatusCode(code, response);
         }
 
-
-        [HttpPut("{id:int}")]
-        [Authorize(Policy = "AdminAction")]
-        public ActionResult<SuccessResponse> Update(int id, [FromBody] PartUpdateRequest model)
-        {
-            int code = 200;
-            BaseResponse response;
-
-            try
-            {
-                // Route id is source of truth (prevents drift)
-                model.Id = id;
-
-                _service.UpdatePart(model);
-                response = new SuccessResponse();
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
-            }
-
-            return StatusCode(code, response);
-        }
-
-        [HttpPatch("location/{id:int}")]
-        [Authorize(Policy = "AdminAction")]
-        public ActionResult<SuccessResponse> UpdateLocation(int id, [FromBody] PartLocationUpdateRequest model)
-        {
-            int code = 200;
-            BaseResponse response;
-
-            try
-            {
-                // Route id is source of truth (prevents drift)
-                model.Id = id;
-
-                var loc = _locationService.GetLocationById(model.LocationId);
-                if (loc == null)
-                {
-                    code = 400;
-                    response = new ErrorResponse("Invalid LocationId.");
-                    return StatusCode(code, response);
-                }
-
-                _service.UpdatePartLocation(model);
-                response = new SuccessResponse();
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
-            }
-
-            return StatusCode(code, response);
-        }
-
         // Separate image upload endpoint (keeps Parts_Insert clean)
         [HttpPost("{id:int}/image")]
         [Consumes("multipart/form-data")]
@@ -190,6 +131,13 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
+                var user = _authService.GetCurrentUser();
+                if (user == null)
+                {
+                    code = 401;
+                    return StatusCode(code, new ErrorResponse("You must be logged in."));
+                }
+
                 IFormFile image = model.Image;
 
                 if (image == null || image.Length == 0)
@@ -226,7 +174,8 @@ namespace Site_2024.Web.Api.Controllers
 
                 string imageUrl = $"/uploads/items/{fileName}";
 
-                _service.PatchPart(id, new PartPatchRequest { Image = imageUrl });
+                // Critical: pass user.Id so @LastMovedBy is correct + audit is accurate
+                _service.PatchPart(id, new PartPatchRequest { Image = imageUrl }, user.Id);
 
                 response = new ItemResponse<string> { Item = imageUrl };
             }
@@ -241,6 +190,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
 
+
         [HttpPatch("{id:int}")]
         [Authorize(Policy = "AdminAction")]
         public ActionResult<BaseResponse> UpdatePart(int id, [FromBody] PartPatchRequest model)
@@ -250,7 +200,14 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
-                _service.PatchPart(id, model);
+                var user = _authService.GetCurrentUser();
+                if (user == null)
+                {
+                    code = 401;
+                    return StatusCode(code, new ErrorResponse("You must be logged in."));
+                }
+
+                _service.PatchPart(id, model, user.Id);
                 response = new SuccessResponse();
             }
             catch (Exception ex)
@@ -262,6 +219,7 @@ namespace Site_2024.Web.Api.Controllers
 
             return StatusCode(code, response);
         }
+
 
         [HttpGet("available/admin")]
         [Authorize(Policy = "AdminAction")]
