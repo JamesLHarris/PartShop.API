@@ -51,6 +51,36 @@ namespace Site_2024.Web.Api.Controllers
             return StatusCode(code, response);
         }
 
+        [HttpGet("companies/all")]
+        public ActionResult<ItemResponse<List<Make>>> GetAllCompanies()
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                List<Make> list = _service.GetMakesAllCompanies();
+
+                if (list == null || list.Count == 0)
+                {
+                    code = 404;
+                    response = new ErrorResponse("No makes found.");
+                }
+                else
+                {
+                    response = new ItemResponse<List<Make>> { Item = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
         [HttpGet("{id:int}")]
         public ActionResult<ItemResponse<Make>> GetById(int id)
         {
