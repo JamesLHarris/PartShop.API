@@ -374,7 +374,39 @@ namespace Site_2024.Web.Api.Controllers
 
             return StatusCode(code, response);
         }
+        //New API call for paginated parts
+        [HttpGet("/api/parts/customer/paginate")]
+        public ActionResult<ItemResponse<Paged<Part>>> GetCustomerPaginated(int pageIndex, int pageSize)
+        {
+            int code = 200;
+            BaseResponse response;
 
+            try
+            {
+                const int availableId = 1;
+                Paged<Part> pages = _service.GetAvailablePaginatedForCustomer(pageIndex, pageSize, availableId);
+
+                if (pages == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Parts not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
+        //Old API call for paginated parts DO NOT DELETE YET
         [HttpGet("available")]
         public ActionResult<ItemResponse<Paged<Part>>> GetAvailablePaginatedCustomers(int pageIndex, int pageSize)
         {
