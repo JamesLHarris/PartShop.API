@@ -1,4 +1,5 @@
-﻿using Site_2024.Web.Api.Constructors;
+﻿using Site_2024.Models.Domain.Parts;
+using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
 
@@ -18,7 +19,7 @@ namespace Site_2024.Web.Api.Services
         public Part GetPartByIdCustomer(int id);
         Paged<Part> GetPartsPaginated(int pageIndex, int pageSize);
         void PatchPart(int id, PartPatchRequest model, int userId);
-
         List<PartSearchResult> Search(PartSearchRequest model);
+        public Paged<PartCustomer> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model);
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Site_2024.Models.Domain.Parts;
 using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models;
@@ -12,6 +13,7 @@ using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
 using System;
 using System.Collections.Generic;
+using System.Drawing.Printing;
 using System.IO;
 
 namespace Site_2024.Web.Api.Controllers
@@ -540,6 +542,36 @@ namespace Site_2024.Web.Api.Controllers
             {
                 List<PartSearchResult> items = _service.Search(model) ?? new List<PartSearchResult>();
                 response = new ItemResponse<List<PartSearchResult>> { Item = items };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpGet("search/customer")]
+        public ActionResult<ItemResponse<Paged<PartCustomer>>> SearchCustomer(int pageIndex, int pageSize, [FromQuery] CustomerSearchRequest model)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                Paged<PartCustomer> pages = _service.SearchCustomer(pageIndex, pageSize, model);
+
+                if (pages == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("App Resource not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<PartCustomer>> { Item = pages };
+                }
             }
             catch (Exception ex)
             {

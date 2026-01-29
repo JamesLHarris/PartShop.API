@@ -9,6 +9,7 @@ using Site_2024.Web.Api.Requests;
 using Microsoft.Extensions.Options;
 using Site_2024.Web.Api.Configurations;
 using Microsoft.Extensions.Logging;
+using Site_2024.Models.Domain.Parts;
 
 
 namespace Site_2024.Web.Api.Services
@@ -337,6 +338,47 @@ namespace Site_2024.Web.Api.Services
             return list ?? new List<PartSearchResult>();
         }
 
+        public Paged<PartCustomer> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model)
+        {
+            string procName = "[dbo].[Parts_Search_Customers_Paged]";
+            List<PartCustomer> list = null;
+            int totalCount = 0;
+
+            _data.ExecuteCmd(
+                procName,
+                inputParamMapper: col =>
+                {
+                    col.AddWithValue("@q", (object?)model.q ?? DBNull.Value);
+                    col.AddWithValue("@CatagoryId", (object?)model.CatagoryId ?? DBNull.Value);
+                    col.AddWithValue("@MakeId", (object?)model.MakeId ?? DBNull.Value);
+                    col.AddWithValue("@ModelId", (object?)model.ModelId ?? DBNull.Value);
+                    col.AddWithValue("@YearMin", (object?)model.YearMin ?? DBNull.Value);
+                    col.AddWithValue("@YearMax", (object?)model.YearMax ?? DBNull.Value);
+                    col.AddWithValue("@PriceMin", (object?)model.PriceMin ?? DBNull.Value);
+                    col.AddWithValue("@PriceMax", (object?)model.PriceMax ?? DBNull.Value);
+                    col.AddWithValue("@Rusted", (object?)model.Rusted ?? DBNull.Value);
+                    col.AddWithValue("@Tested", (object?)model.Tested ?? DBNull.Value);
+                    col.AddWithValue("@PageIndex", pageIndex);
+                    col.AddWithValue("@PageSize", pageSize);
+                },
+                singleRecordMapper: (reader, set) =>
+                {
+                    int i = 0;
+                    PartCustomer part = MapPartCustomer(reader, ref i);
+
+                    if (totalCount == 0)
+                    {
+                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                    }
+
+                    list ??= new List<PartCustomer>();
+                    list.Add(part);
+                }
+            );
+
+            return list == null ? null : new Paged<PartCustomer>(list, pageIndex, pageSize, totalCount);
+        }
+
         #endregion
 
         #region ---POST&PUT---
@@ -551,6 +593,41 @@ namespace Site_2024.Web.Api.Services
             p.DateModified = reader.GetSafeDateTime(startingIndex++);
 
             return p;
+        }
+
+        private static PartCustomer MapPartCustomer(IDataReader reader, ref int startingIndex)
+        {
+            PartCustomer part = new PartCustomer();
+
+            part.Id = reader.GetSafeInt32(startingIndex++);
+            part.Name = reader.GetSafeString(startingIndex++);
+
+            part.CatagoryId = reader.GetSafeInt32(startingIndex++);
+            part.CatagoryName = reader.GetSafeString(startingIndex++);
+
+            part.MakeId = reader.GetSafeInt32(startingIndex++);
+            part.MakeName = reader.GetSafeString(startingIndex++);
+
+            part.ModelId = reader.GetSafeInt32(startingIndex++);
+            part.ModelName = reader.GetSafeString(startingIndex++);
+
+            part.Year = reader.GetSafeInt32(startingIndex++);
+            part.PartNumber = reader.GetSafeString(startingIndex++);
+
+            part.Rusted = reader.GetSafeBool(startingIndex++);
+            part.Tested = reader.GetSafeBool(startingIndex++);
+
+            part.Description = reader.GetSafeString(startingIndex++);
+            part.Price = reader.GetSafeDecimal(startingIndex++);
+            part.Image = reader.GetSafeString(startingIndex++);
+
+            part.AvailableId = reader.GetSafeInt32(startingIndex++);
+            part.AvailableStatus = reader.GetSafeString(startingIndex++);
+
+            part.DateCreated = reader.GetSafeDateTime(startingIndex++);
+            part.DateModified = reader.GetSafeDateTime(startingIndex++);
+
+            return part;
         }
 
         #endregion
