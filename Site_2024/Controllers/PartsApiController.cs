@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Site_2024.Models.Domain.Parts;
 using Site_2024.Web.Api.Constructors;
@@ -209,17 +210,100 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, new ErrorResponse("You must be logged in."));
                 }
 
+                if (model == null)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Patch payload is required."));
+                }
+
+                // Normalize strings
+                model.Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim();
+                model.Image = string.IsNullOrWhiteSpace(model.Image) ? null : model.Image.Trim();
+
+                // Reject empty patch (no-op)
+                if (!HasAnyPatchField(model))
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("At least one field is required to patch."));
+                }
+
+                // Validate manual fields only (high ROI)
+                if (model.Price.HasValue)
+                {
+                    if (model.Price.Value < 0.01m || model.Price.Value > 1_000_000m)
+                    {
+                        code = 400;
+                        return StatusCode(code, new ErrorResponse("Price must be between 0.01 and 1,000,000."));
+                    }
+
+                    if (decimal.Round(model.Price.Value, 2) != model.Price.Value)
+                    {
+                        code = 400;
+                        return StatusCode(code, new ErrorResponse("Price can have at most 2 decimal places."));
+                    }
+                }
+
+                if (model.Description != null && model.Description.Length > 4000)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Description cannot exceed 4000 characters."));
+                }
+
+                if (model.Image != null && model.Image.Length > 260)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Image path cannot exceed 260 characters."));
+                }
+
                 _service.PatchPart(id, model, user.Id);
                 response = new SuccessResponse();
+            }
+            catch (Exception ex) when (IsFkViolation(ex))
+            {
+                code = 400;
+                response = new ErrorResponse("Invalid LocationId or AvailableId.");
             }
             catch (Exception ex)
             {
                 code = 500;
                 base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
+                response = new ErrorResponse("An unexpected error occurred.");
             }
 
+
             return StatusCode(code, response);
+        }
+
+        private static bool HasAnyPatchField(PartPatchRequest m)
+        {
+            return m.Price.HasValue
+                || m.AvailableId.HasValue
+                || m.Rusted.HasValue
+                || m.Tested.HasValue
+                || m.LocationId.HasValue
+                || !string.IsNullOrWhiteSpace(m.Description)
+                || !string.IsNullOrWhiteSpace(m.Image);
+        }
+
+        private static bool IsFkViolation(Exception ex)
+        {
+            // Walk the exception chain to look for SQL Server FK violation signature.
+            // SQL Server FK violations often contain: "FOREIGN KEY constraint" and/or "conflicted with the FOREIGN KEY constraint"
+            // If your data layer wraps exceptions, this still works.
+            Exception current = ex;
+            while (current != null)
+            {
+                string msg = current.Message ?? string.Empty;
+                if (msg.IndexOf("FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    msg.IndexOf("conflicted with the FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+
+                current = current.InnerException;
+            }
+
+            return false;
         }
 
 
@@ -533,6 +617,7 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("search")]
+        [Authorize(Policy = "AdminAction")]
         public ActionResult<ItemResponse<List<PartSearchResult>>> Search([FromQuery] PartSearchRequest model)
         {
             int code = 200;
