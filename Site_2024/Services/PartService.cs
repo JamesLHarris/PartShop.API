@@ -324,8 +324,7 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@Tested", (object?)model.Tested ?? DBNull.Value);
                     col.AddWithValue("@SiteId", (object?)model.SiteId ?? DBNull.Value);
                     col.AddWithValue("@BoxId", (object?)model.BoxId ?? DBNull.Value);
-                    col.AddWithValue("@MaxRows", model.MaxRows);
-                    col.AddWithValue("@CustomerView", model.CustomerView);
+
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
@@ -429,6 +428,7 @@ namespace Site_2024.Web.Api.Services
                 col.Add("@Tested", SqlDbType.Bit).Value = (object?)model.Tested ?? DBNull.Value;
                 col.Add("@Description", SqlDbType.NVarChar, 4000).Value = (object?)model.Description ?? DBNull.Value;
                 col.Add("@Image", SqlDbType.NVarChar, 260).Value = (object?)model.Image ?? DBNull.Value;
+                col.Add("@Quantity", SqlDbType.Int).Value = (object?)model.Quantity ?? DBNull.Value;
                 col.Add("@LocationId", SqlDbType.Int).Value = (object?)model.LocationId ?? DBNull.Value;
 
                 // Critical: always set LastMovedBy from server
@@ -464,6 +464,7 @@ namespace Site_2024.Web.Api.Services
             col.AddWithValue("@tested", model.Tested);
             col.AddWithValue("@description", model.Description);
             col.AddWithValue("@price", model.Price);
+            col.AddWithValue("@quantity", model.Quantity);
             col.AddWithValue("@locationId", model.LocationId);
             col.AddWithValue("@image", model.Image);
             col.AddWithValue("@availableId", model.AvailableId);
@@ -502,6 +503,7 @@ namespace Site_2024.Web.Api.Services
             part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
+            part.Quantity = reader.GetSafeInt32(startingIndex++);
             part.Location.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Name = reader.GetSafeString(startingIndex++);
@@ -552,6 +554,7 @@ namespace Site_2024.Web.Api.Services
             part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
+            part.Quantity = reader.GetSafeInt32(startingIndex++);
             string imagePath = reader.GetSafeString(startingIndex++);
             part.Image = string.IsNullOrEmpty(imagePath)
                 ? null
@@ -573,7 +576,7 @@ namespace Site_2024.Web.Api.Services
             p.CatagoryId = reader.GetSafeInt32(startingIndex++);
             p.CatagoryName = reader.GetSafeString(startingIndex++);
             p.MakeId = reader.GetSafeInt32(startingIndex++);
-            p.MakeName = reader.GetString(startingIndex++);
+            p.MakeName = reader.GetSafeString(startingIndex++);
             p.ModelId = reader.GetSafeInt32(startingIndex++);
             p.ModelName = reader.GetSafeString(startingIndex++);
             p.Year = reader.GetSafeInt32(startingIndex++);
@@ -582,6 +585,7 @@ namespace Site_2024.Web.Api.Services
             p.Tested = reader.GetSafeBool(startingIndex++);
             p.Description = reader.GetSafeString(startingIndex++);
             p.Price = reader.GetSafeDecimal(startingIndex++);
+            p.Quantity = reader.GetSafeInt32(startingIndex++);
             p.Image = reader.GetSafeString(startingIndex++);
             p.AvailableId = reader.GetSafeInt32(startingIndex++);
             p.AvailableStatus = reader.GetSafeString(startingIndex++);
@@ -619,6 +623,7 @@ namespace Site_2024.Web.Api.Services
 
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
+            part.Quantity = reader.GetSafeInt32(startingIndex++);
             part.Image = reader.GetSafeString(startingIndex++);
 
             part.AvailableId = reader.GetSafeInt32(startingIndex++);

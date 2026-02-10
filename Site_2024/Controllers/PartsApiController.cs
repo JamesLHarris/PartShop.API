@@ -24,12 +24,14 @@ namespace Site_2024.Web.Api.Controllers
     public class PartsApiController : BaseApiController
     {
         private readonly IPartService _service;
+        private readonly IPartImageService _partImageService;
         private readonly ILocationService _locationService;
         private readonly IAuthenticationService<IUserAuthData> _authService;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
         public PartsApiController(
             IPartService service,
+            IPartImageService partImageService,
             ILocationService locationService,
             ILogger<PartsApiController> logger,
             IAuthenticationService<IUserAuthData> authService,
@@ -37,6 +39,7 @@ namespace Site_2024.Web.Api.Controllers
         ) : base(logger)
         {
             _service = service;
+            _partImageService = partImageService;
             _locationService = locationService;
             _authService = authService;
             _webHostEnvironment = webHostEnvironment;
@@ -180,6 +183,9 @@ namespace Site_2024.Web.Api.Controllers
                 // Critical: pass user.Id so @LastMovedBy is correct + audit is accurate
                 _service.PatchPart(id, new PartPatchRequest { Image = imageUrl }, user.Id);
 
+                // Keep PartImages in sync (primary)
+                _partImageService.Add(id, imageUrl, true, 0, user.Id);
+
                 response = new ItemResponse<string> { Item = imageUrl };
             }
             catch (Exception ex)
@@ -192,7 +198,124 @@ namespace Site_2024.Web.Api.Controllers
             return StatusCode(code, response);
         }
 
+        [HttpPost("{id:int}/images")]
+        [Consumes("multipart/form-data")]
+        [Authorize(Policy = "AdminAction")]
+        public ActionResult<BaseResponse> UploadImages(int id, [FromForm] Requests.PartImagesUploadRequest model)
+        {
+            int code = 200;
+            BaseResponse response;
 
+            try
+            {
+                var user = _authService.GetCurrentUser();
+                if (user == null)
+                {
+                    code = 401;
+                    return StatusCode(code, new ErrorResponse("You must be logged in."));
+                }
+
+                if (model?.Images == null || model.Images.Count == 0)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("At least one image is required."));
+                }
+
+                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
+                Directory.CreateDirectory(uploadsFolder);
+
+                string[] allowed = { ".jpg", ".jpeg", ".png", ".webp" };
+                const long maxBytes = 5 * 1024 * 1024;
+
+                // Determine whether we should set a primary from this batch
+                bool hasPrimaryAlready = _partImageService.HasPrimary(id); 
+                bool shouldSetPrimaryFromBatch = model.SetFirstAsPrimary && !hasPrimaryAlready;
+
+                var urls = new List<string>();
+                int sortOrder = model.SortStart;
+
+                for (int i = 0; i < model.Images.Count; i++)
+                {
+                    IFormFile image = model.Images[i];
+
+                    if (image == null || image.Length == 0)
+                    {
+                        continue; // skip empty entries instead of failing whole request
+                    }
+
+                    string ext = Path.GetExtension(image.FileName).ToLowerInvariant();
+                    if (!allowed.Contains(ext))
+                    {
+                        code = 400;
+                        return StatusCode(code, new ErrorResponse($"Invalid image type: {ext}. Allowed: jpg, jpeg, png, webp."));
+                    }
+
+                    if (image.Length > maxBytes)
+                    {
+                        code = 400;
+                        return StatusCode(code, new ErrorResponse("Image too large. Max size is 5MB."));
+                    }
+
+                    string fileName = $"{Guid.NewGuid()}{ext}";
+                    string filePath = Path.Combine(uploadsFolder, fileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        image.CopyTo(stream);
+                    }
+
+                    string imageUrl = $"/uploads/items/{fileName}";
+                    urls.Add(imageUrl);
+
+                    bool isPrimary = shouldSetPrimaryFromBatch && i == 0;
+
+                    // Insert PartImages row
+                    _partImageService.Add(id, imageUrl, isPrimary, sortOrder, user.Id);
+
+                    sortOrder++;
+                }
+
+                if (urls.Count == 0)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("No valid images were uploaded."));
+                }
+
+                response = new ItemResponse<List<string>> { Item = urls };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
+
+
+
+        [HttpGet("{id:int}/images")]
+        [AllowAnonymous]
+        public ActionResult<ItemResponse<List<PartImage>>> GetImagesByPartId(int id)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                List<PartImage> list = _partImageService.GetByPartId(id);
+                response = new ItemResponse<List<PartImage>> { Item = list };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse(ex.Message);
+            }
+
+            return StatusCode(code, response);
+        }
 
         [HttpPatch("{id:int}")]
         [Authorize(Policy = "AdminAction")]
@@ -219,6 +342,12 @@ namespace Site_2024.Web.Api.Controllers
                 // Normalize strings
                 model.Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim();
                 model.Image = string.IsNullOrWhiteSpace(model.Image) ? null : model.Image.Trim();
+
+                if (model.Quantity.HasValue && model.Quantity.Value < 0)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Quantity cannot be negative."));
+                }
 
                 // Reject empty patch (no-op)
                 if (!HasAnyPatchField(model))
@@ -280,6 +409,7 @@ namespace Site_2024.Web.Api.Controllers
                 || m.AvailableId.HasValue
                 || m.Rusted.HasValue
                 || m.Tested.HasValue
+                || m.Quantity.HasValue
                 || m.LocationId.HasValue
                 || !string.IsNullOrWhiteSpace(m.Description)
                 || !string.IsNullOrWhiteSpace(m.Image);
