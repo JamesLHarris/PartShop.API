@@ -28,6 +28,10 @@ namespace Site_2024.Web.Api.Requests
         [Range(typeof(decimal), "0.01", "99999999.99")]
         public decimal Price { get; set; }
 
+        // Inventory quantity (admin-controlled)
+        [Range(0, int.MaxValue)]
+        public int Quantity { get; set; } = 1;
+
         [Range(1, int.MaxValue)]
         public int LocationId { get; set; }
 

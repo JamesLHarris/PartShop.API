@@ -15,7 +15,5 @@
         public bool? Tested { get; set; }
         public int? SiteId { get; set; }
         public int? BoxId { get; set; }
-        public int MaxRows { get; set; } = 200;
-        public bool CustomerView { get; set; } = false;
     }
 }

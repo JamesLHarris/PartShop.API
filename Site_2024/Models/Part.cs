@@ -15,6 +15,7 @@ namespace Site_2024.Web.Api.Models
         public bool Tested { get; set; }
         public string Description { get; set; }
         public decimal Price { get; set; }
+        public int Quantity { get; set; }
         public Location Location { get; set; }
         public string Image {  get; set; }
         public Available Available { get; set; }

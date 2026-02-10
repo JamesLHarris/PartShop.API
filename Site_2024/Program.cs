@@ -91,22 +91,26 @@ builder.Services.AddAuthorization(options =>
 // Configure DbContext and other services
 string connString = builder.Configuration.GetConnectionString("connMSSQL");
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connString));
-builder.Services.AddSingleton<IDataProvider>(new DataProvider(connString));
-builder.Services.AddSingleton<IPartService, PartService>();
-builder.Services.AddSingleton<IAvailableService, AvailableService>();
-builder.Services.AddSingleton<IModelService, ModelService>();
-builder.Services.AddSingleton<IMakeService, MakeService>();
-builder.Services.AddSingleton<ICatagoryService, CatagoryService>();
-builder.Services.AddSingleton<ILocationService, LocationService>();
-builder.Services.AddSingleton<ISiteService, SiteService>();
-builder.Services.AddSingleton<IShelfService, ShelfService>();
-builder.Services.AddSingleton<ISectionService, SectionService>();
-builder.Services.AddSingleton<IBoxService, BoxService>();
-builder.Services.AddSingleton<IAreaService, AreaService>();
-builder.Services.AddSingleton<IAisleService, AisleService>();
-builder.Services.AddSingleton<IAuditService, AuditService>();
+builder.Services.AddScoped<IDataProvider>(_ => new DataProvider(connString));
+
+builder.Services.AddScoped<IPartService, PartService>();
+builder.Services.AddScoped<IPartImageService, PartImageService>();
+builder.Services.AddScoped<IAvailableService, AvailableService>();
+builder.Services.AddScoped<IModelService, ModelService>();
+builder.Services.AddScoped<IMakeService, MakeService>();
+builder.Services.AddScoped<ICatagoryService, CatagoryService>();
+builder.Services.AddScoped<ILocationService, LocationService>();
+builder.Services.AddScoped<ISiteService, SiteService>();
+builder.Services.AddScoped<IShelfService, ShelfService>();
+builder.Services.AddScoped<ISectionService, SectionService>();
+builder.Services.AddScoped<IBoxService, BoxService>();
+builder.Services.AddScoped<IAreaService, AreaService>();
+builder.Services.AddScoped<IAisleService, AisleService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();
 builder.Services.Configure<StaticFileOptions>(
     builder.Configuration.GetSection("StaticFileOptions"));
