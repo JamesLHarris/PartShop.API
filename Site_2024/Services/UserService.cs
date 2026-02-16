@@ -38,8 +38,8 @@ namespace Site_2024.Web.Api.Services
             int userId = 0;
             string password = model.Password;
             string hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
-            int role = 4;
-            model.RoleId = role;
+            //int role = 4;
+            //model.RoleId = role;
 
             // Prepare SQL to create a new user in the database
             string procName = "[dbo].[User_Insert]";

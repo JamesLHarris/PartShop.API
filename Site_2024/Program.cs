@@ -44,13 +44,19 @@ builder.Logging.AddDebug();
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("CorsPolicy",
-        builder => builder
-            .WithOrigins("http://localhost:3000") // Adjust as per your frontend URL
+    options.AddPolicy("CorsPolicy", policy =>
+        policy
+            .WithOrigins(
+                "http://localhost:3000",
+                "https://red-pond-0503f431e.2.azurestaticapps.net",
+                "https://red-pond-0503f431e-1.westus2.2.azurestaticapps.net"
+            )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials()); // Allow credentials if needed
+            .AllowCredentials()
+    );
 });
+
 
 
 // Configure Authentication with Cookie Authentication
