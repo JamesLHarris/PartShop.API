@@ -8,5 +8,6 @@ namespace Site_2024.Web.Api.Services
         int Add(int partId, string url, bool isPrimary, int sortOrder, int userId);
         List<PartImage> GetByPartId(int partId);
         bool HasPrimary(int partId);
+        public void ClearPrimary(int partId);
     }
 }

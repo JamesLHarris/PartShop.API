@@ -38,6 +38,18 @@ namespace Site_2024.Web.Api.Services
 
             return id;
         }
+        public void ClearPrimary(int partId)
+        {
+            const string procName = "[dbo].[PartImages_ClearPrimaryByPartId]";
+
+            _data.ExecuteNonQuery(procName,
+                inputParamMapper: col =>
+                {
+                    col.AddWithValue("@PartId", partId);
+                },
+                returnParameters: null);
+        }
+
 
         public List<PartImage> GetByPartId(int partId)
         {

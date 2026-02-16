@@ -126,78 +126,6 @@ namespace Site_2024.Web.Api.Controllers
             return StatusCode(code, response);
         }
 
-        // Separate image upload endpoint (keeps Parts_Insert clean)
-        [HttpPost("{id:int}/image")]
-        [Consumes("multipart/form-data")]
-        [Authorize(Policy = "AdminAction")]
-        public ActionResult<BaseResponse> UploadImage(int id, [FromForm] Requests.Parts.PartImageUploadRequest model)
-        {
-            int code = 200;
-            BaseResponse response;
-
-            try
-            {
-                var user = _authService.GetCurrentUser();
-                if (user == null)
-                {
-                    code = 401;
-                    return StatusCode(code, new ErrorResponse("You must be logged in."));
-                }
-
-                IFormFile image = model.Image;
-
-                if (image == null || image.Length == 0)
-                {
-                    code = 400;
-                    return StatusCode(code, new ErrorResponse("Image is required."));
-                }
-
-                string ext = Path.GetExtension(image.FileName).ToLowerInvariant();
-                string[] allowed = { ".jpg", ".jpeg", ".png", ".webp" };
-                if (!allowed.Contains(ext))
-                {
-                    code = 400;
-                    return StatusCode(code, new ErrorResponse("Invalid image type. Allowed: jpg, jpeg, png, webp."));
-                }
-
-                const long maxBytes = 5 * 1024 * 1024;
-                if (image.Length > maxBytes)
-                {
-                    code = 400;
-                    return StatusCode(code, new ErrorResponse("Image too large. Max size is 5MB."));
-                }
-
-                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
-                Directory.CreateDirectory(uploadsFolder);
-
-                string fileName = $"{Guid.NewGuid()}{ext}";
-                string filePath = Path.Combine(uploadsFolder, fileName);
-
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    image.CopyTo(stream);
-                }
-
-                string imageUrl = $"/uploads/items/{fileName}";
-
-                // Critical: pass user.Id so @LastMovedBy is correct + audit is accurate
-                _service.PatchPart(id, new PartPatchRequest { Image = imageUrl }, user.Id);
-
-                // Keep PartImages in sync (primary)
-                _partImageService.Add(id, imageUrl, true, 0, user.Id);
-
-                response = new ItemResponse<string> { Item = imageUrl };
-            }
-            catch (Exception ex)
-            {
-                code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
-            }
-
-            return StatusCode(code, response);
-        }
-
         [HttpPost("{id:int}/images")]
         [Consumes("multipart/form-data")]
         [Authorize(Policy = "AdminAction")]
@@ -221,18 +149,16 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, new ErrorResponse("At least one image is required."));
                 }
 
-                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
-                Directory.CreateDirectory(uploadsFolder);
-
                 string[] allowed = { ".jpg", ".jpeg", ".png", ".webp" };
                 const long maxBytes = 5 * 1024 * 1024;
 
-                // Determine whether we should set a primary from this batch
-                bool hasPrimaryAlready = _partImageService.HasPrimary(id); 
-                bool shouldSetPrimaryFromBatch = model.SetFirstAsPrimary && !hasPrimaryAlready;
+                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
+                Directory.CreateDirectory(uploadsFolder);
+
+                // Enforce: this batch decides primary (index 0)
+                _partImageService.ClearPrimary(id);
 
                 var urls = new List<string>();
-                int sortOrder = model.SortStart;
 
                 for (int i = 0; i < model.Images.Count; i++)
                 {
@@ -240,7 +166,8 @@ namespace Site_2024.Web.Api.Controllers
 
                     if (image == null || image.Length == 0)
                     {
-                        continue; // skip empty entries instead of failing whole request
+                        code = 400;
+                        return StatusCode(code, new ErrorResponse("One of the images is empty."));
                     }
 
                     string ext = Path.GetExtension(image.FileName).ToLowerInvariant();
@@ -267,19 +194,14 @@ namespace Site_2024.Web.Api.Controllers
                     string imageUrl = $"/uploads/items/{fileName}";
                     urls.Add(imageUrl);
 
-                    bool isPrimary = shouldSetPrimaryFromBatch && i == 0;
+                    bool isPrimary = (i == 0);
+                    int sortOrder = i;
 
-                    // Insert PartImages row
                     _partImageService.Add(id, imageUrl, isPrimary, sortOrder, user.Id);
-
-                    sortOrder++;
                 }
 
-                if (urls.Count == 0)
-                {
-                    code = 400;
-                    return StatusCode(code, new ErrorResponse("No valid images were uploaded."));
-                }
+                // Keep Parts.Image in sync with the primary image
+                _service.PatchPart(id, new PartPatchRequest { Image = urls[0] }, user.Id);
 
                 response = new ItemResponse<List<string>> { Item = urls };
             }
