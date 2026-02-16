@@ -387,25 +387,21 @@ namespace Site_2024.Web.Api.Services
             int id = 0;
             string procName = "[dbo].[Parts_Insert]";
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteNonQuery(procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     model.UserId = userId;
                     AddCommonPartsParams(model, col);
 
-                    // REQUIRED because proc signature has: @Id INT OUTPUT
                     SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
                     idOut.Direction = ParameterDirection.Output;
                     col.Add(idOut);
                 },
-                singleRecordMapper: delegate (IDataReader reader, short set)
+                returnParameters: delegate (SqlParameterCollection col)
                 {
-                    // Comes from: SELECT @Id AS Id;
-                    if (!reader.IsDBNull(0))
-                    {
-                        id = reader.GetInt32(0);
-                    }
+                    id = (int)col["@Id"].Value;
                 });
+
 
             return id;
         }
