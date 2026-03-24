@@ -155,9 +155,6 @@ namespace Site_2024.Web.Api.Controllers
                 string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "items");
                 Directory.CreateDirectory(uploadsFolder);
 
-                // Enforce: this batch decides primary (index 0)
-                _partImageService.ClearPrimary(id);
-
                 var urls = new List<string>();
 
                 for (int i = 0; i < model.Images.Count; i++)
@@ -264,6 +261,7 @@ namespace Site_2024.Web.Api.Controllers
                 // Normalize strings
                 model.Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim();
                 model.Image = string.IsNullOrWhiteSpace(model.Image) ? null : model.Image.Trim();
+                model.OtherBox = string.IsNullOrWhiteSpace(model.OtherBox) ? null : model.OtherBox.Trim();
 
                 if (model.Quantity.HasValue && model.Quantity.Value < 0)
                 {
@@ -334,7 +332,9 @@ namespace Site_2024.Web.Api.Controllers
                 || m.Quantity.HasValue
                 || m.LocationId.HasValue
                 || !string.IsNullOrWhiteSpace(m.Description)
-                || !string.IsNullOrWhiteSpace(m.Image);
+                || !string.IsNullOrWhiteSpace(m.Image)
+                || !string.IsNullOrWhiteSpace(m.OtherBox)
+                || !string.IsNullOrWhiteSpace(m.Year);
         }
 
         private static bool IsFkViolation(Exception ex)

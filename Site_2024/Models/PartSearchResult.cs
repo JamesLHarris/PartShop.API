@@ -10,7 +10,7 @@
         public string MakeName { get; set; }
         public int? ModelId { get; set; }
         public string ModelName { get; set; }
-        public int? Year { get; set; }
+        public string? Year { get; set; }
         public string PartNumber { get; set; }
         public bool? Rusted { get; set; }
         public bool? Tested { get; set; }
@@ -24,7 +24,9 @@
         public string SiteName { get; set; }
         public int? BoxId {  get; set; }
         public string BoxName { get; set; }
+        public string OtherBox {  get; set; }
         public DateTime? DateModified { get; set; }
         public DateTime? DateCreated { get; set; }
+
     }
 }

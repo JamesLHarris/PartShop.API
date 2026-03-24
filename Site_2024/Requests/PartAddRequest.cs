@@ -13,8 +13,8 @@ namespace Site_2024.Web.Api.Requests
         [Range(1, int.MaxValue)]
         public int MakeId { get; set; }
 
-        [Range(1900, 2100)]
-        public int Year { get; set; }
+        [StringLength(50)]
+        public string Year { get; set; }
 
         [Required, StringLength(128, MinimumLength = 2)]
         public string PartNumber { get; set; }
@@ -39,5 +39,7 @@ namespace Site_2024.Web.Api.Requests
         public string? Image { get; set; }
         public int AvailableId { get; set; }
         public int UserId { get; set; }
+        public string? OtherBox { get; set; }
+
     }
 }

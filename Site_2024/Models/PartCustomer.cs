@@ -16,7 +16,7 @@ namespace Site_2024.Models.Domain.Parts
         public int ModelId { get; set; }
         public string ModelName { get; set; }
 
-        public int Year { get; set; }
+        public string Year { get; set; }
         public string PartNumber { get; set; }
 
         public bool Rusted { get; set; }
