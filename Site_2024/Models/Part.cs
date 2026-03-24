@@ -9,7 +9,7 @@ namespace Site_2024.Web.Api.Models
         public string Name { get; set; }
         public Catagory Catagory { get; set; }
         public Make Make { get; set; }
-        public int Year { get; set; }
+        public string Year { get; set; }
         public string PartNumber {  get; set; }
         public bool Rusted { get; set; }
         public bool Tested { get; set; }
@@ -22,6 +22,8 @@ namespace Site_2024.Web.Api.Models
         public DateTime DateCreated { get; set; }
         public DateTime DateModified { get; set; }
         public Site_2024.Web.Api.Models.User.User User { get; set; }
+        public string? OtherBox { get; set; }
+
 
     }
 }

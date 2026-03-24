@@ -6,8 +6,8 @@
         public int? CatagoryId { get; set; }
         public int? MakeId { get; set; }
         public int? ModelId { get; set; }
-        public int? YearMin { get; set; }
-        public int? YearMax { get; set; }
+        public string? YearMin { get; set; }
+        public string? YearMax { get; set; }
         public int? AvailableId { get; set; }
         public decimal? PriceMin { get; set; }
         public decimal? PriceMax { get; set; }

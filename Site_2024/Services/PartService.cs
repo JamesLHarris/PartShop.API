@@ -388,23 +388,18 @@ namespace Site_2024.Web.Api.Services
             string procName = "[dbo].[Parts_Insert]";
 
             _data.ExecuteCmd(procName,
-                inputParamMapper: delegate (SqlParameterCollection col)
+                inputParamMapper: col =>
                 {
                     model.UserId = userId;
                     AddCommonPartsParams(model, col);
 
-                    // REQUIRED because proc signature has: @Id INT OUTPUT
                     SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
                     idOut.Direction = ParameterDirection.Output;
                     col.Add(idOut);
                 },
-                singleRecordMapper: delegate (IDataReader reader, short set)
+                singleRecordMapper: (reader, set) =>
                 {
-                    // Comes from: SELECT @Id AS Id;
-                    if (!reader.IsDBNull(0))
-                    {
-                        id = reader.GetInt32(0);
-                    }
+                    id = reader.GetSafeInt32(0);
                 });
 
             return id;
@@ -430,6 +425,7 @@ namespace Site_2024.Web.Api.Services
                 col.Add("@Image", SqlDbType.NVarChar, 260).Value = (object?)model.Image ?? DBNull.Value;
                 col.Add("@Quantity", SqlDbType.Int).Value = (object?)model.Quantity ?? DBNull.Value;
                 col.Add("@LocationId", SqlDbType.Int).Value = (object?)model.LocationId ?? DBNull.Value;
+                col.AddWithValue("@OtherBox", (object?)model.OtherBox ?? DBNull.Value);
 
                 // Critical: always set LastMovedBy from server
                 col.Add("@LastMovedBy", SqlDbType.Int).Value = userId;
@@ -469,6 +465,7 @@ namespace Site_2024.Web.Api.Services
             col.AddWithValue("@image", model.Image);
             col.AddWithValue("@availableId", model.AvailableId);
             col.AddWithValue("@lastmovedby", model.UserId);
+            col.AddWithValue("@OtherBox", (object?)model.OtherBox ?? DBNull.Value);
 
         }
 
@@ -497,7 +494,7 @@ namespace Site_2024.Web.Api.Services
             part.Make.Company = reader.GetSafeString(startingIndex++);
             part.Make.Model.Id = reader.GetSafeInt32(startingIndex++);
             part.Make.Model.Name = reader.GetSafeString(startingIndex++);
-            part.Year = reader.GetSafeInt32(startingIndex++);
+            part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
             part.Rusted = reader.GetSafeBool(startingIndex++);
             part.Tested = reader.GetSafeBool(startingIndex++);
@@ -528,6 +525,8 @@ namespace Site_2024.Web.Api.Services
             part.DateModified = reader.GetSafeDateTime(startingIndex++);
             part.User.Id = reader.GetSafeInt32(startingIndex++);
             part.User.Name = reader.GetSafeString(startingIndex++);
+            part.OtherBox = reader.GetSafeString(startingIndex++);
+
 
             return part;
         }
@@ -548,7 +547,7 @@ namespace Site_2024.Web.Api.Services
             part.Make.Company = reader.GetSafeString(startingIndex++);
             part.Make.Model.Id = reader.GetSafeInt32(startingIndex++);
             part.Make.Model.Name = reader.GetSafeString(startingIndex++);
-            part.Year = reader.GetSafeInt32(startingIndex++);
+            part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
             part.Rusted = reader.GetSafeBool(startingIndex++);
             part.Tested = reader.GetSafeBool(startingIndex++);
@@ -579,7 +578,7 @@ namespace Site_2024.Web.Api.Services
             p.MakeName = reader.GetSafeString(startingIndex++);
             p.ModelId = reader.GetSafeInt32(startingIndex++);
             p.ModelName = reader.GetSafeString(startingIndex++);
-            p.Year = reader.GetSafeInt32(startingIndex++);
+            p.Year = reader.GetSafeString(startingIndex++);
             p.PartNumber = reader.GetSafeString(startingIndex++);
             p.Rusted = reader.GetSafeBool(startingIndex++);
             p.Tested = reader.GetSafeBool(startingIndex++);
@@ -593,6 +592,7 @@ namespace Site_2024.Web.Api.Services
             p.SiteName = reader.GetSafeString(startingIndex++);
             p.BoxId = reader.GetSafeInt32(startingIndex++);
             p.BoxName = reader.GetSafeString(startingIndex++);
+            p.OtherBox = reader.GetSafeString(startingIndex++);
             p.DateCreated = reader.GetSafeDateTime(startingIndex++);
             p.DateModified = reader.GetSafeDateTime(startingIndex++);
 
@@ -615,7 +615,7 @@ namespace Site_2024.Web.Api.Services
             part.ModelId = reader.GetSafeInt32(startingIndex++);
             part.ModelName = reader.GetSafeString(startingIndex++);
 
-            part.Year = reader.GetSafeInt32(startingIndex++);
+            part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
 
             part.Rusted = reader.GetSafeBool(startingIndex++);
