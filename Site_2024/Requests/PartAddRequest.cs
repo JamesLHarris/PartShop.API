@@ -19,9 +19,6 @@ namespace Site_2024.Web.Api.Requests
         [Required, StringLength(128, MinimumLength = 2)]
         public string PartNumber { get; set; }
 
-        public bool Rusted { get; set; }
-        public bool Tested { get; set; }
-
         [Required, StringLength(4000, MinimumLength = 2)]
         public string Description { get; set; }
 
@@ -40,6 +37,7 @@ namespace Site_2024.Web.Api.Requests
         public int AvailableId { get; set; }
         public int UserId { get; set; }
         public string? OtherBox { get; set; }
+        public int? ConditionId { get; set; }
 
     }
 }

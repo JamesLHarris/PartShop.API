@@ -327,10 +327,9 @@ namespace Site_2024.Web.Api.Controllers
         {
             return m.Price.HasValue
                 || m.AvailableId.HasValue
-                || m.Rusted.HasValue
-                || m.Tested.HasValue
                 || m.Quantity.HasValue
                 || m.LocationId.HasValue
+                || m.ConditionId.HasValue
                 || !string.IsNullOrWhiteSpace(m.Description)
                 || !string.IsNullOrWhiteSpace(m.Image)
                 || !string.IsNullOrWhiteSpace(m.OtherBox)

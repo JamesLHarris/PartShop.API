@@ -315,13 +315,10 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@CatagoryId", (object?)model.CatagoryId ?? DBNull.Value);
                     col.AddWithValue("@MakeId", (object?)model.MakeId ?? DBNull.Value);
                     col.AddWithValue("@ModelId", (object?)model.ModelId ?? DBNull.Value);
-                    col.AddWithValue("@YearMin", (object?)model.YearMin ?? DBNull.Value);
-                    col.AddWithValue("@YearMax", (object?)model.YearMax ?? DBNull.Value);
+                    col.AddWithValue("@ConditionId", (object?)model.ConditionId ?? DBNull.Value);
                     col.AddWithValue("@AvailableId", (object?)model.AvailableId ?? DBNull.Value);
                     col.AddWithValue("@PriceMin", (object?)model.PriceMin ?? DBNull.Value);
                     col.AddWithValue("@PriceMax", (object?)model.PriceMax ?? DBNull.Value);
-                    col.AddWithValue("@Rusted", (object?)model.Rusted ?? DBNull.Value);
-                    col.AddWithValue("@Tested", (object?)model.Tested ?? DBNull.Value);
                     col.AddWithValue("@SiteId", (object?)model.SiteId ?? DBNull.Value);
                     col.AddWithValue("@BoxId", (object?)model.BoxId ?? DBNull.Value);
 
@@ -351,12 +348,9 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@CatagoryId", (object?)model.CatagoryId ?? DBNull.Value);
                     col.AddWithValue("@MakeId", (object?)model.MakeId ?? DBNull.Value);
                     col.AddWithValue("@ModelId", (object?)model.ModelId ?? DBNull.Value);
-                    col.AddWithValue("@YearMin", (object?)model.YearMin ?? DBNull.Value);
-                    col.AddWithValue("@YearMax", (object?)model.YearMax ?? DBNull.Value);
+                    col.AddWithValue("@ConditionId", (object?)model.ConditionId ?? DBNull.Value);
                     col.AddWithValue("@PriceMin", (object?)model.PriceMin ?? DBNull.Value);
                     col.AddWithValue("@PriceMax", (object?)model.PriceMax ?? DBNull.Value);
-                    col.AddWithValue("@Rusted", (object?)model.Rusted ?? DBNull.Value);
-                    col.AddWithValue("@Tested", (object?)model.Tested ?? DBNull.Value);
                     col.AddWithValue("@PageIndex", pageIndex);
                     col.AddWithValue("@PageSize", pageSize);
                 },
@@ -419,13 +413,12 @@ namespace Site_2024.Web.Api.Services
                 pPrice.Value = (object?)model.Price ?? DBNull.Value;
 
                 col.Add("@AvailableId", SqlDbType.Int).Value = (object?)model.AvailableId ?? DBNull.Value;
-                col.Add("@Rusted", SqlDbType.Bit).Value = (object?)model.Rusted ?? DBNull.Value;
-                col.Add("@Tested", SqlDbType.Bit).Value = (object?)model.Tested ?? DBNull.Value;
                 col.Add("@Description", SqlDbType.NVarChar, 4000).Value = (object?)model.Description ?? DBNull.Value;
                 col.Add("@Image", SqlDbType.NVarChar, 260).Value = (object?)model.Image ?? DBNull.Value;
                 col.Add("@Quantity", SqlDbType.Int).Value = (object?)model.Quantity ?? DBNull.Value;
                 col.Add("@LocationId", SqlDbType.Int).Value = (object?)model.LocationId ?? DBNull.Value;
                 col.AddWithValue("@OtherBox", (object?)model.OtherBox ?? DBNull.Value);
+                col.AddWithValue("@ConditionId", (object?)model.ConditionId ?? DBNull.Value);
 
                 // Critical: always set LastMovedBy from server
                 col.Add("@LastMovedBy", SqlDbType.Int).Value = userId;
@@ -456,11 +449,10 @@ namespace Site_2024.Web.Api.Services
             col.AddWithValue("@year", model.Year);
             col.AddWithValue("@partnumber", model.PartNumber);
             col.AddWithValue("@catagoryId", model.CatagoryId);
-            col.AddWithValue("@rusted", model.Rusted);
-            col.AddWithValue("@tested", model.Tested);
             col.AddWithValue("@description", model.Description);
             col.AddWithValue("@price", model.Price);
             col.AddWithValue("@quantity", model.Quantity);
+            col.AddWithValue("@conditionId", model.ConditionId);
             col.AddWithValue("@locationId", model.LocationId);
             col.AddWithValue("@image", model.Image);
             col.AddWithValue("@availableId", model.AvailableId);
@@ -485,6 +477,7 @@ namespace Site_2024.Web.Api.Services
             part.Location.Box = new Box();
             part.Available = new Available();
             part.User = new Models.User.User();
+            part.Condition = new Condition();
 
             part.Id = reader.GetSafeInt32(startingIndex++);
             part.Name = reader.GetSafeString(startingIndex++);
@@ -496,11 +489,11 @@ namespace Site_2024.Web.Api.Services
             part.Make.Model.Name = reader.GetSafeString(startingIndex++);
             part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
-            part.Rusted = reader.GetSafeBool(startingIndex++);
-            part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
             part.Quantity = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Id = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Name = reader.GetSafeString(startingIndex++);
             part.Location.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Name = reader.GetSafeString(startingIndex++);
@@ -538,6 +531,7 @@ namespace Site_2024.Web.Api.Services
             part.Make = new Make();
             part.Make.Model = new Model();
             part.Available = new Available();
+            part.Condition = new Condition();
 
             part.Id = reader.GetSafeInt32(startingIndex++);
             part.Name = reader.GetSafeString(startingIndex++);
@@ -549,11 +543,11 @@ namespace Site_2024.Web.Api.Services
             part.Make.Model.Name = reader.GetSafeString(startingIndex++);
             part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
-            part.Rusted = reader.GetSafeBool(startingIndex++);
-            part.Tested = reader.GetSafeBool(startingIndex++);
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
             part.Quantity = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Id = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Name = reader.GetSafeString(startingIndex++);
             string imagePath = reader.GetSafeString(startingIndex++);
             part.Image = string.IsNullOrEmpty(imagePath)
                 ? null
@@ -580,11 +574,11 @@ namespace Site_2024.Web.Api.Services
             p.ModelName = reader.GetSafeString(startingIndex++);
             p.Year = reader.GetSafeString(startingIndex++);
             p.PartNumber = reader.GetSafeString(startingIndex++);
-            p.Rusted = reader.GetSafeBool(startingIndex++);
-            p.Tested = reader.GetSafeBool(startingIndex++);
             p.Description = reader.GetSafeString(startingIndex++);
             p.Price = reader.GetSafeDecimal(startingIndex++);
             p.Quantity = reader.GetSafeInt32(startingIndex++);
+            p.ConditionId = reader.GetSafeInt32(startingIndex++);
+            p.ConditionName = reader.GetSafeString(startingIndex++);
             p.Image = reader.GetSafeString(startingIndex++);
             p.AvailableId = reader.GetSafeInt32(startingIndex++);
             p.AvailableStatus = reader.GetSafeString(startingIndex++);
@@ -618,12 +612,11 @@ namespace Site_2024.Web.Api.Services
             part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
 
-            part.Rusted = reader.GetSafeBool(startingIndex++);
-            part.Tested = reader.GetSafeBool(startingIndex++);
-
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
             part.Quantity = reader.GetSafeInt32(startingIndex++);
+            part.ConditionId = reader.GetSafeInt32(startingIndex++);
+            part.ConditionName = reader.GetSafeString(startingIndex++);
             part.Image = reader.GetSafeString(startingIndex++);
 
             part.AvailableId = reader.GetSafeInt32(startingIndex++);

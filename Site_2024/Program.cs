@@ -114,7 +114,7 @@ builder.Services.AddScoped<IAreaService, AreaService>();
 builder.Services.AddScoped<IAisleService, AisleService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IUserService, UserService>();
-
+builder.Services.AddScoped<IConditionService, ConditionService>();
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();
