@@ -6,12 +6,10 @@
         public int? CatagoryId { get; set; }
         public int? MakeId { get; set; }
         public int? ModelId { get; set; }
-        public string? YearMin { get; set; }
-        public string? YearMax { get; set; }
+        public string? Year { get; set; }
+        public int? ConditionId { get; set; }
         public int? AvailableId { get; set; }
         public decimal? PriceMin { get; set; }
         public decimal? PriceMax { get; set; }
-        public bool? Rusted { get; set; }
-        public bool? Tested { get; set; }
     }
 }
