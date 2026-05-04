@@ -115,6 +115,8 @@ builder.Services.AddScoped<IAisleService, AisleService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IConditionService, ConditionService>();
+builder.Services.AddScoped<IShippingPoliciesService, ShippingPoliciesService>();
+builder.Services.AddScoped<IRefundRequestService, RefundRequestService>();
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();

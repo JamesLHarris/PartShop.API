@@ -1,5 +1,4 @@
-﻿using Site_2024.Models.Domain.Parts;
-using Site_2024.Web.Api.Constructors;
+﻿using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
 
@@ -7,19 +6,20 @@ namespace Site_2024.Web.Api.Services
 {
     public interface IPartService
     {
-        int Insert(PartAddRequest model, int userId);
         void DeletePart(int id);
-        Paged<Part> GetAvailablePaginated(int pageIndex, int pageSize, int availableId);
-        Paged<Part> GetAvailablePaginatedForCustomer(int pageIndex, int pageSize, int availableId);
-        public Paged<Part> GetByModelPaginated(int pageIndex, int pageSize, int modelId);
-        public Paged<Part> GetByModelPaginatedCustomer(int pageIndex, int pageSize, int modelId);
-        public Paged<Part> GetByCategoryPaginated(int pageIndex, int pageSize, int categoryId);
-        public Paged<Part> GetByCategoryPaginatedCustomer(int pageIndex, int pageSize, int categoryId);
-        public Part GetPartById(int id);
-        public Part GetPartByIdCustomer(int id);
-        Paged<Part> GetPartsPaginated(int pageIndex, int pageSize);
+        Paged<PartSummary> GetAllPaginated(int pageIndex, int pageSize);
+        Paged<PartSummary> GetAvailablePaginated(int pageIndex, int pageSize, int availableId);
+        Paged<PartCustomerSummary> GetAvailablePaginatedForCustomer(int pageIndex, int pageSize, int availableId);
+        Paged<PartSummary> GetByCategoryPaginated(int pageIndex, int pageSize, int categoryId);
+        Paged<PartCustomerSummary> GetByCategoryPaginatedCustomer(int pageIndex, int pageSize, int categoryId);
+        Paged<PartSummary> GetByModelPaginated(int pageIndex, int pageSize, int modelId);
+        Paged<PartCustomerSummary> GetByModelPaginatedCustomer(int pageIndex, int pageSize, int modelId);
+        Part GetPartById(int id);
+        Part GetPartByIdCustomer(int id);
+        Paged<PartSummary> GetPartsPaginated(int pageIndex, int pageSize);
+        int Insert(PartAddRequest model, int userId);
         void PatchPart(int id, PartPatchRequest model, int userId);
         List<PartSearchResult> Search(PartSearchRequest model);
-        public Paged<PartCustomer> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model);
+        Paged<PartCustomerSummary> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model);
     }
 }

@@ -11,5 +11,6 @@
         public string? OtherBox { get; set; }
         public string? Year { get; set; }
         public int? ConditionId { get; set; }
+        public int? ShippingPolicyId { get; set; }
     }
 }
