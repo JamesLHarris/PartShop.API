@@ -330,6 +330,7 @@ namespace Site_2024.Web.Api.Controllers
                 || m.Quantity.HasValue
                 || m.LocationId.HasValue
                 || m.ConditionId.HasValue
+                || m.ShippingPolicyId.HasValue
                 || !string.IsNullOrWhiteSpace(m.Description)
                 || !string.IsNullOrWhiteSpace(m.Image)
                 || !string.IsNullOrWhiteSpace(m.OtherBox)
@@ -360,7 +361,7 @@ namespace Site_2024.Web.Api.Controllers
 
         [HttpGet("available/admin")]
         [Authorize(Policy = "AdminAction")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetAvailablePaginated(int pageIndex, int pageSize)
+        public ActionResult<ItemResponse<Paged<PartSummary>>> GetAvailablePaginated(int pageIndex, int pageSize)
         {
             int code = 200;
             BaseResponse response;
@@ -368,7 +369,7 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
-                Paged<Part> pages = _service.GetAvailablePaginated(pageIndex, pageSize, availableId);
+                Paged<PartSummary> pages = _service.GetAvailablePaginated(pageIndex, pageSize, availableId);
 
                 if (pages == null)
                 {
@@ -377,7 +378,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -391,14 +392,14 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("model/{modelId:int}")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetByModelCustomer(int pageIndex, int pageSize, int modelId)
+        public ActionResult<ItemResponse<Paged<PartCustomerSummary>>> GetByModelCustomer(int pageIndex, int pageSize, int modelId)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                Paged<Part> pages = _service.GetByModelPaginatedCustomer(pageIndex, pageSize, modelId);
+                Paged<PartCustomerSummary> pages = _service.GetByModelPaginatedCustomer(pageIndex, pageSize, modelId);
 
                 if (pages == null)
                 {
@@ -407,7 +408,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartCustomerSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -422,14 +423,14 @@ namespace Site_2024.Web.Api.Controllers
 
         [HttpGet("model/{modelId:int}/admin")]
         [Authorize(Policy = "AdminAction")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetByModelAdmin(int pageIndex, int pageSize, int modelId)
+        public ActionResult<ItemResponse<Paged<PartSummary>>> GetByModelAdmin(int pageIndex, int pageSize, int modelId)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                Paged<Part> pages = _service.GetByModelPaginated(pageIndex, pageSize, modelId);
+                Paged<PartSummary> pages = _service.GetByModelPaginated(pageIndex, pageSize, modelId);
 
                 if (pages == null)
                 {
@@ -438,7 +439,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -452,14 +453,14 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("category/{categoryId:int}")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetByCategoryCustomer(int pageIndex, int pageSize, int categoryId)
+        public ActionResult<ItemResponse<Paged<PartCustomerSummary>>> GetByCategoryCustomer(int pageIndex, int pageSize, int categoryId)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                Paged<Part> pages = _service.GetByCategoryPaginatedCustomer(pageIndex, pageSize, categoryId);
+                Paged<PartCustomerSummary> pages = _service.GetByCategoryPaginatedCustomer(pageIndex, pageSize, categoryId);
 
                 if (pages == null)
                 {
@@ -468,7 +469,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartCustomerSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -483,14 +484,14 @@ namespace Site_2024.Web.Api.Controllers
 
         [HttpGet("category/{categoryId:int}/admin")]
         [Authorize(Policy = "AdminAction")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetByCategoryAdmin(int pageIndex, int pageSize, int categoryId)
+        public ActionResult<ItemResponse<Paged<PartSummary>>> GetByCategoryAdmin(int pageIndex, int pageSize, int categoryId)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                Paged<Part> pages = _service.GetByCategoryPaginated(pageIndex, pageSize, categoryId);
+                Paged<PartSummary> pages = _service.GetByCategoryPaginated(pageIndex, pageSize, categoryId);
 
                 if (pages == null)
                 {
@@ -499,7 +500,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -513,7 +514,7 @@ namespace Site_2024.Web.Api.Controllers
         }
         //New API call for paginated parts
         [HttpGet("/api/parts/customer/paginate")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetCustomerPaginated(int pageIndex, int pageSize)
+        public ActionResult<ItemResponse<Paged<PartCustomerSummary>>> GetCustomerPaginated(int pageIndex, int pageSize)
         {
             int code = 200;
             BaseResponse response;
@@ -521,7 +522,7 @@ namespace Site_2024.Web.Api.Controllers
             try
             {
                 const int availableId = 1;
-                Paged<Part> pages = _service.GetAvailablePaginatedForCustomer(pageIndex, pageSize, availableId);
+                Paged<PartCustomerSummary> pages = _service.GetAvailablePaginatedForCustomer(pageIndex, pageSize, availableId);
 
                 if (pages == null)
                 {
@@ -530,7 +531,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartCustomerSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -545,7 +546,7 @@ namespace Site_2024.Web.Api.Controllers
 
         //Old API call for paginated parts DO NOT DELETE YET
         [HttpGet("available")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetAvailablePaginatedCustomers(int pageIndex, int pageSize)
+        public ActionResult<ItemResponse<Paged<PartCustomerSummary>>> GetAvailablePaginatedCustomers(int pageIndex, int pageSize)
         {
             int code = 200;
             BaseResponse response;
@@ -553,7 +554,7 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
-                Paged<Part> pages = _service.GetAvailablePaginatedForCustomer(pageIndex, pageSize, availableId);
+                Paged<PartCustomerSummary> pages = _service.GetAvailablePaginatedForCustomer(pageIndex, pageSize, availableId);
 
                 if (pages == null)
                 {
@@ -562,7 +563,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartCustomerSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -577,14 +578,14 @@ namespace Site_2024.Web.Api.Controllers
 
         [HttpGet("stock")]
         [Authorize(Policy = "AdminAction")]
-        public ActionResult<ItemResponse<Paged<Part>>> GetPartsPaginated(int pageIndex, int pageSize)
+        public ActionResult<ItemResponse<Paged<PartSummary>>> GetPartsPaginated(int pageIndex, int pageSize)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                Paged<Part> pages = _service.GetPartsPaginated(pageIndex, pageSize);
+                Paged<PartSummary> pages = _service.GetPartsPaginated(pageIndex, pageSize);
 
                 if (pages == null)
                 {
@@ -593,7 +594,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<Part>> { Item = pages };
+                    response = new ItemResponse<Paged<PartSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)
@@ -690,14 +691,14 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpGet("search/customer")]
-        public ActionResult<ItemResponse<Paged<PartCustomer>>> SearchCustomer(int pageIndex, int pageSize, [FromQuery] CustomerSearchRequest model)
+        public ActionResult<ItemResponse<Paged<PartCustomerSummary>>> SearchCustomer(int pageIndex, int pageSize, [FromQuery] CustomerSearchRequest model)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                Paged<PartCustomer> pages = _service.SearchCustomer(pageIndex, pageSize, model);
+                Paged<PartCustomerSummary> pages = _service.SearchCustomer(pageIndex, pageSize, model);
 
                 if (pages == null)
                 {
@@ -706,7 +707,7 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<Paged<PartCustomer>> { Item = pages };
+                    response = new ItemResponse<Paged<PartCustomerSummary>> { Item = pages };
                 }
             }
             catch (Exception ex)

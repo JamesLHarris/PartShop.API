@@ -18,11 +18,13 @@ namespace Site_2024.Web.Api.Models
         public string Image {  get; set; }
         public Available Available { get; set; }
         public Condition Condition { get; set; }
+        public ShippingPolicy ShippingPolicy { get; set; }
         public DateTime DateCreated { get; set; }
         public DateTime DateModified { get; set; }
         public Site_2024.Web.Api.Models.User.User User { get; set; }
         public string? OtherBox { get; set; }
-
+        public List<PartCategory> Categories { get; set; } = new();
+        public List<PartFitment> Fitments { get; set; } = new();
 
     }
 }

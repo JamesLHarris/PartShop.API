@@ -10,18 +10,20 @@ using Microsoft.Extensions.Options;
 using Site_2024.Web.Api.Configurations;
 using Microsoft.Extensions.Logging;
 using Site_2024.Models.Domain.Parts;
-
+using StaticFileOptions = Site_2024.Web.Api.Configurations.StaticFileOptions;
 
 namespace Site_2024.Web.Api.Services
 {
     public class PartService : IPartService
     {
-        private IDataProvider _data;
-        private readonly Site_2024.Web.Api.Configurations.StaticFileOptions _staticFileOptions;
+        private readonly IDataProvider _data;
+        private readonly StaticFileOptions _staticFileOptions;
         private readonly ILogger _logger;
 
-        public PartService(ILogger<PartService> logger,IDataProvider data, IOptions<Site_2024.Web.Api.Configurations.StaticFileOptions> staticFileOptions)
-
+        public PartService(
+            ILogger<PartService> logger,
+            IDataProvider data,
+            IOptions<StaticFileOptions> staticFileOptions)
         {
             _data = data;
             _staticFileOptions = staticFileOptions.Value;
@@ -29,19 +31,36 @@ namespace Site_2024.Web.Api.Services
         }
 
         #region ---GET---
+
         public Part GetPartById(int id)
         {
             string procName = "[dbo].[Parts_GetById]";
-            Part? part = null;
+            Part part = null;
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     col.AddWithValue("@Id", id);
-                }, delegate (IDataReader reader, short set)
+                },
+                singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int startingIndex = 0;
-                    part = MapSinglePart(reader, ref startingIndex);
+
+                    if (set == 0)
+                    {
+                        part = MapSinglePart(reader, ref startingIndex);
+                    }
+                    else if (set == 1 && part != null)
+                    {
+                        PartCategory category = MapSinglePartCategory(reader, ref startingIndex);
+                        part.Categories.Add(category);
+                    }
+                    else if (set == 2 && part != null)
+                    {
+                        PartFitment fitment = MapSinglePartFitment(reader, ref startingIndex);
+                        part.Fitments.Add(fitment);
+                    }
                 });
 
             return part;
@@ -50,64 +69,78 @@ namespace Site_2024.Web.Api.Services
         public Part GetPartByIdCustomer(int id)
         {
             string procName = "[dbo].[Parts_GetByIdCustomer]";
-            Part? part = null;
+            Part part = null;
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     col.AddWithValue("@Id", id);
-                }, delegate (IDataReader reader, short set)
+                },
+                singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int startingIndex = 0;
-                    part = MapSinglePartForCustomer(reader, ref startingIndex);
+
+                    if (set == 0)
+                    {
+                        part = MapSinglePartForCustomer(reader, ref startingIndex);
+                    }
+                    else if (set == 1 && part != null)
+                    {
+                        PartCategory category = MapSinglePartCategory(reader, ref startingIndex);
+                        part.Categories.Add(category);
+                    }
+                    else if (set == 2 && part != null)
+                    {
+                        PartFitment fitment = MapSinglePartFitment(reader, ref startingIndex);
+                        part.Fitments.Add(fitment);
+                    }
                 });
 
             return part;
         }
 
-        public Paged<Part> GetPartsPaginated(int pageIndex, int pageSize)
+        public Paged<PartSummary> GetAllPaginated(int pageIndex, int pageSize)
         {
             string procName = "[dbo].[Parts_GetAllPaginated]";
-
-            Paged<Part> pagedList = null;
-            List<Part> list = null;
+            Paged<PartSummary> pagedList = null;
+            List<PartSummary> list = null;
             int totalCount = 0;
 
             _data.ExecuteCmd(
                 procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
+                inputParamMapper: delegate (SqlParameterCollection col)
                 {
-                    coll.AddWithValue("@PageIndex", pageIndex);
-                    coll.AddWithValue("@PageSize", pageSize);
+                    col.AddWithValue("@PageIndex", pageIndex);
+                    col.AddWithValue("@PageSize", pageSize);
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
-                    int i = 0;
-                    Part part = MapSinglePart(reader, ref i);
+                    int startingIndex = 0;
+                    PartSummary part = MapPartSummary(reader, ref startingIndex);
 
                     if (totalCount == 0)
                     {
-                        totalCount = reader.GetSafeInt32(i++);
+                        totalCount = reader.GetSafeInt32(startingIndex++);
                     }
-                    if (list == null)
-                    {
-                        list = new List<Part>();
-                    }
+
+                    list ??= new List<PartSummary>();
                     list.Add(part);
                 });
+
             if (list != null)
             {
-                pagedList = new Paged<Part>(list, pageIndex, pageSize, totalCount);
+                pagedList = new Paged<PartSummary>(list, pageIndex, pageSize, totalCount);
             }
+
             return pagedList;
         }
 
-        public Paged<Part> GetAvailablePaginated(int pageIndex, int pageSize, int availableId)
+        public Paged<PartSummary> GetAvailablePaginated(int pageIndex, int pageSize, int availableId)
         {
             string procName = "[dbo].[Parts_GetAvailablePaginated]";
-
-            Paged<Part> pagedList = null;
-            List<Part> list = null;
+            Paged<PartSummary> pagedList = null;
+            List<PartSummary> list = null;
             int totalCount = 0;
 
             _data.ExecuteCmd(
@@ -121,30 +154,30 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int i = 0;
-                    Part part = MapSinglePart(reader, ref i);
+                    PartSummary part = MapPartSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
                         totalCount = reader.GetSafeInt32(i++);
                     }
-                    if (list == null)
-                    {
-                        list = new List<Part>();
-                    }
+
+                    list ??= new List<PartSummary>();
                     list.Add(part);
                 });
+
             if (list != null)
             {
-                pagedList = new Paged<Part>(list, pageIndex, pageSize, totalCount);
+                pagedList = new Paged<PartSummary>(list, pageIndex, pageSize, totalCount);
             }
+
             return pagedList;
         }
-        public Paged<Part> GetAvailablePaginatedForCustomer(int pageIndex, int pageSize, int availableId)
+
+        public Paged<PartCustomerSummary> GetAvailablePaginatedForCustomer(int pageIndex, int pageSize, int availableId)
         {
             string procName = "[dbo].[Parts_GetAvailablePaginatedCustomer]";
-
-            Paged<Part> pagedList = null;
-            List<Part> list = null;
+            Paged<PartCustomerSummary> pagedList = null;
+            List<PartCustomerSummary> list = null;
             int totalCount = 0;
 
             _data.ExecuteCmd(
@@ -158,32 +191,33 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int i = 0;
-                    Part part = MapSinglePartForCustomer(reader, ref i);
+                    PartCustomerSummary part = MapPartCustomerSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
                         totalCount = reader.GetSafeInt32(i++);
                     }
-                    if (list == null)
-                    {
-                        list = new List<Part>();
-                    }
+
+                    list ??= new List<PartCustomerSummary>();
                     list.Add(part);
                 });
+
             if (list != null)
             {
-                pagedList = new Paged<Part>(list, pageIndex, pageSize, totalCount);
+                pagedList = new Paged<PartCustomerSummary>(list, pageIndex, pageSize, totalCount);
             }
+
             return pagedList;
         }
 
-        public Paged<Part> GetByModelPaginated(int pageIndex, int pageSize, int modelId)
+        public Paged<PartSummary> GetByModelPaginated(int pageIndex, int pageSize, int modelId)
         {
             string procName = "[dbo].[Parts_GetByModelPaginated]";
-            List<Part> list = null;
+            List<PartSummary> list = null;
             int totalCount = 0;
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     col.AddWithValue("@PageIndex", pageIndex);
@@ -193,25 +227,24 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: (reader, set) =>
                 {
                     int i = 0;
-                    Part part = MapSinglePart(reader, ref i);
+                    PartSummary part = MapPartSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
-                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                        totalCount = reader.GetSafeInt32(i);
                     }
 
-                    list ??= new List<Part>();
+                    list ??= new List<PartSummary>();
                     list.Add(part);
-                }
-           );
+                });
 
-            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+            return list == null ? null : new Paged<PartSummary>(list, pageIndex, pageSize, totalCount);
         }
 
-        public Paged<Part> GetByModelPaginatedCustomer(int pageIndex, int pageSize, int modelId)
+        public Paged<PartCustomerSummary> GetByModelPaginatedCustomer(int pageIndex, int pageSize, int modelId)
         {
             string procName = "[dbo].[Parts_GetByModelPaginatedCustomer]";
-            List<Part> list = null;
+            List<PartCustomerSummary> list = null;
             int totalCount = 0;
 
             _data.ExecuteCmd(
@@ -225,28 +258,28 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: (reader, set) =>
                 {
                     int i = 0;
-                    Part part = MapSinglePartForCustomer(reader, ref i);
+                    PartCustomerSummary part = MapPartCustomerSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
-                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                        totalCount = reader.GetSafeInt32(i);
                     }
 
-                    list ??= new List<Part>();
+                    list ??= new List<PartCustomerSummary>();
                     list.Add(part);
-                }
-            );
+                });
 
-            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+            return list == null ? null : new Paged<PartCustomerSummary>(list, pageIndex, pageSize, totalCount);
         }
 
-        public Paged<Part> GetByCategoryPaginated(int pageIndex, int pageSize, int categoryId)
+        public Paged<PartSummary> GetByCategoryPaginated(int pageIndex, int pageSize, int categoryId)
         {
             string procName = "[dbo].[Parts_GetByCatagoryPaginated]";
-            List<Part> list = null;
+            List<PartSummary> list = null;
             int totalCount = 0;
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     col.AddWithValue("@PageIndex", pageIndex);
@@ -256,25 +289,24 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: (reader, set) =>
                 {
                     int i = 0;
-                    Part part = MapSinglePart(reader, ref i);
+                    PartSummary part = MapPartSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
-                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                        totalCount = reader.GetSafeInt32(i);
                     }
 
-                    list ??= new List<Part>();
+                    list ??= new List<PartSummary>();
                     list.Add(part);
-                }
-           );
+                });
 
-            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+            return list == null ? null : new Paged<PartSummary>(list, pageIndex, pageSize, totalCount);
         }
 
-        public Paged<Part> GetByCategoryPaginatedCustomer(int pageIndex, int pageSize, int categoryId)
+        public Paged<PartCustomerSummary> GetByCategoryPaginatedCustomer(int pageIndex, int pageSize, int categoryId)
         {
             string procName = "[dbo].[Parts_GetByCatagoryPaginatedCustomer]";
-            List<Part> list = null;
+            List<PartCustomerSummary> list = null;
             int totalCount = 0;
 
             _data.ExecuteCmd(
@@ -288,19 +320,18 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: (reader, set) =>
                 {
                     int i = 0;
-                    Part part = MapSinglePartForCustomer(reader, ref i);
+                    PartCustomerSummary part = MapPartCustomerSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
-                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                        totalCount = reader.GetSafeInt32(i);
                     }
 
-                    list ??= new List<Part>();
+                    list ??= new List<PartCustomerSummary>();
                     list.Add(part);
-                }
-            );
+                });
 
-            return list == null ? null : new Paged<Part>(list, pageIndex, pageSize, totalCount);
+            return list == null ? null : new Paged<PartCustomerSummary>(list, pageIndex, pageSize, totalCount);
         }
 
         public List<PartSearchResult> Search(PartSearchRequest model)
@@ -308,7 +339,8 @@ namespace Site_2024.Web.Api.Services
             string procName = "[dbo].[Parts_Search]";
             List<PartSearchResult> list = null;
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     col.AddWithValue("@q", (object?)model.q ?? DBNull.Value);
@@ -321,12 +353,12 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@PriceMax", (object?)model.PriceMax ?? DBNull.Value);
                     col.AddWithValue("@SiteId", (object?)model.SiteId ?? DBNull.Value);
                     col.AddWithValue("@BoxId", (object?)model.BoxId ?? DBNull.Value);
-
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int i = 0;
                     PartSearchResult p = MapPart(reader, ref i);
+
                     list ??= new List<PartSearchResult>();
                     list.Add(p);
                 });
@@ -334,10 +366,10 @@ namespace Site_2024.Web.Api.Services
             return list ?? new List<PartSearchResult>();
         }
 
-        public Paged<PartCustomer> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model)
+        public Paged<PartCustomerSummary> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model)
         {
             string procName = "[dbo].[Parts_Search_Customers_Paged]";
-            List<PartCustomer> list = null;
+            List<PartCustomerSummary> list = null;
             int totalCount = 0;
 
             _data.ExecuteCmd(
@@ -357,19 +389,18 @@ namespace Site_2024.Web.Api.Services
                 singleRecordMapper: (reader, set) =>
                 {
                     int i = 0;
-                    PartCustomer part = MapPartCustomer(reader, ref i);
+                    PartCustomerSummary part = MapPartCustomerSummary(reader, ref i);
 
                     if (totalCount == 0)
                     {
-                        totalCount = reader.GetSafeInt32(i); // Read TotalCount
+                        totalCount = reader.GetSafeInt32(i);
                     }
 
-                    list ??= new List<PartCustomer>();
+                    list ??= new List<PartCustomerSummary>();
                     list.Add(part);
-                }
-            );
+                });
 
-            return list == null ? null : new Paged<PartCustomer>(list, pageIndex, pageSize, totalCount);
+            return list == null ? null : new Paged<PartCustomerSummary>(list, pageIndex, pageSize, totalCount);
         }
 
         #endregion
@@ -381,10 +412,13 @@ namespace Site_2024.Web.Api.Services
             int id = 0;
             string procName = "[dbo].[Parts_Insert]";
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: col =>
                 {
                     model.UserId = userId;
+
+                    NormalizeLegacyFields(model);
                     AddCommonPartsParams(model, col);
 
                     SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
@@ -395,6 +429,9 @@ namespace Site_2024.Web.Api.Services
                 {
                     id = reader.GetSafeInt32(0);
                 });
+
+            SavePartCategories(id, model.Categories);
+            SavePartFitments(id, model.Fitments);
 
             return id;
         }
@@ -407,7 +444,7 @@ namespace Site_2024.Web.Api.Services
             {
                 col.Add("@Id", SqlDbType.Int).Value = id;
 
-                var pPrice = col.Add("@Price", SqlDbType.Decimal);
+                SqlParameter pPrice = col.Add("@Price", SqlDbType.Decimal);
                 pPrice.Precision = 18;
                 pPrice.Scale = 2;
                 pPrice.Value = (object?)model.Price ?? DBNull.Value;
@@ -417,10 +454,9 @@ namespace Site_2024.Web.Api.Services
                 col.Add("@Image", SqlDbType.NVarChar, 260).Value = (object?)model.Image ?? DBNull.Value;
                 col.Add("@Quantity", SqlDbType.Int).Value = (object?)model.Quantity ?? DBNull.Value;
                 col.Add("@LocationId", SqlDbType.Int).Value = (object?)model.LocationId ?? DBNull.Value;
-                col.AddWithValue("@OtherBox", (object?)model.OtherBox ?? DBNull.Value);
-                col.AddWithValue("@ConditionId", (object?)model.ConditionId ?? DBNull.Value);
-
-                // Critical: always set LastMovedBy from server
+                col.Add("@shippingPolicyId", SqlDbType.Int).Value = (object?)model.ShippingPolicyId ?? DBNull.Value;
+                col.Add("@OtherBox", SqlDbType.NVarChar, 100).Value = (object?)model.OtherBox ?? DBNull.Value;
+                col.Add("@ConditionId", SqlDbType.Int).Value = (object?)model.ConditionId ?? DBNull.Value;
                 col.Add("@LastMovedBy", SqlDbType.Int).Value = userId;
             });
         }
@@ -428,16 +464,20 @@ namespace Site_2024.Web.Api.Services
         #endregion
 
         #region ---DELETE---
+
         public void DeletePart(int id)
         {
             string procName = "[dbo].[Parts_Delete]";
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Id", id);
-            }
-            , returnParameters: null);
+
+            _data.ExecuteNonQuery(
+                procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@Id", id);
+                },
+                returnParameters: null);
         }
+
         #endregion
 
         #region ---MAPPER---
@@ -446,21 +486,20 @@ namespace Site_2024.Web.Api.Services
         {
             col.AddWithValue("@name", model.Name);
             col.AddWithValue("@makeId", model.MakeId);
-            col.AddWithValue("@year", model.Year);
+            col.AddWithValue("@year", (object?)model.Year ?? DBNull.Value);
             col.AddWithValue("@partnumber", model.PartNumber);
             col.AddWithValue("@catagoryId", model.CatagoryId);
             col.AddWithValue("@description", model.Description);
             col.AddWithValue("@price", model.Price);
             col.AddWithValue("@quantity", model.Quantity);
-            col.AddWithValue("@conditionId", model.ConditionId);
+            col.AddWithValue("@conditionId", (object?)model.ConditionId ?? DBNull.Value);
+            col.AddWithValue("@shippingPolicyId", model.ShippingPolicyId);
             col.AddWithValue("@locationId", model.LocationId);
-            col.AddWithValue("@image", model.Image);
+            col.AddWithValue("@image", (object?)model.Image ?? DBNull.Value);
             col.AddWithValue("@availableId", model.AvailableId);
             col.AddWithValue("@lastmovedby", model.UserId);
             col.AddWithValue("@OtherBox", (object?)model.OtherBox ?? DBNull.Value);
-
         }
-
 
         private Part MapSinglePart(IDataReader reader, ref int startingIndex)
         {
@@ -478,6 +517,7 @@ namespace Site_2024.Web.Api.Services
             part.Available = new Available();
             part.User = new Models.User.User();
             part.Condition = new Condition();
+            part.ShippingPolicy = new ShippingPolicy();
 
             part.Id = reader.GetSafeInt32(startingIndex++);
             part.Name = reader.GetSafeString(startingIndex++);
@@ -494,6 +534,8 @@ namespace Site_2024.Web.Api.Services
             part.Quantity = reader.GetSafeInt32(startingIndex++);
             part.Condition.Id = reader.GetSafeInt32(startingIndex++);
             part.Condition.Name = reader.GetSafeString(startingIndex++);
+            part.ShippingPolicy.Id = reader.GetSafeInt32(startingIndex++);
+            part.ShippingPolicy.Name = reader.GetSafeString(startingIndex++);
             part.Location.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Site.Name = reader.GetSafeString(startingIndex++);
@@ -501,12 +543,13 @@ namespace Site_2024.Web.Api.Services
             part.Location.Area.Name = reader.GetSafeString(startingIndex++);
             part.Location.Aisle.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Aisle.Name = reader.GetSafeString(startingIndex++);
-            part.Location.Shelf.Id = reader.GetSafeInt32( startingIndex++);
-            part.Location.Shelf.Name = reader.GetSafeString( startingIndex++);
+            part.Location.Shelf.Id = reader.GetSafeInt32(startingIndex++);
+            part.Location.Shelf.Name = reader.GetSafeString(startingIndex++);
             part.Location.Section.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Section.Name = reader.GetSafeString(startingIndex++);
-            part.Location.Box.Id = reader.GetSafeInt32( startingIndex++);
+            part.Location.Box.Id = reader.GetSafeInt32(startingIndex++);
             part.Location.Box.Name = reader.GetSafeString(startingIndex++);
+
             string imagePath = reader.GetSafeString(startingIndex++);
             part.Image = string.IsNullOrEmpty(imagePath)
                 ? null
@@ -520,6 +563,8 @@ namespace Site_2024.Web.Api.Services
             part.User.Name = reader.GetSafeString(startingIndex++);
             part.OtherBox = reader.GetSafeString(startingIndex++);
 
+            part.Categories = new List<PartCategory>();
+            part.Fitments = new List<PartFitment>();
 
             return part;
         }
@@ -548,6 +593,7 @@ namespace Site_2024.Web.Api.Services
             part.Quantity = reader.GetSafeInt32(startingIndex++);
             part.Condition.Id = reader.GetSafeInt32(startingIndex++);
             part.Condition.Name = reader.GetSafeString(startingIndex++);
+
             string imagePath = reader.GetSafeString(startingIndex++);
             part.Image = string.IsNullOrEmpty(imagePath)
                 ? null
@@ -556,12 +602,14 @@ namespace Site_2024.Web.Api.Services
             part.Available.Id = reader.GetSafeInt32(startingIndex++);
             part.Available.Status = reader.GetSafeString(startingIndex++);
 
+            part.Categories = new List<PartCategory>();
+            part.Fitments = new List<PartFitment>();
+
             return part;
         }
 
-        private static PartSearchResult MapPart(IDataReader reader, ref int startingIndex)
+        private PartSearchResult MapPart(IDataReader reader, ref int startingIndex)
         {
-            // Using your GetSafe* extensions to avoid null exceptions
             PartSearchResult p = new PartSearchResult();
 
             p.Id = reader.GetSafeInt32(startingIndex++);
@@ -579,7 +627,12 @@ namespace Site_2024.Web.Api.Services
             p.Quantity = reader.GetSafeInt32(startingIndex++);
             p.ConditionId = reader.GetSafeInt32(startingIndex++);
             p.ConditionName = reader.GetSafeString(startingIndex++);
-            p.Image = reader.GetSafeString(startingIndex++);
+
+            string imagePath = reader.GetSafeString(startingIndex++);
+            p.Image = string.IsNullOrEmpty(imagePath)
+                ? null
+                : $"{_staticFileOptions.ImageBaseUrl}{imagePath}";
+
             p.AvailableId = reader.GetSafeInt32(startingIndex++);
             p.AvailableStatus = reader.GetSafeString(startingIndex++);
             p.SiteId = reader.GetSafeInt32(startingIndex++);
@@ -593,39 +646,200 @@ namespace Site_2024.Web.Api.Services
             return p;
         }
 
-        private static PartCustomer MapPartCustomer(IDataReader reader, ref int startingIndex)
+        private PartSummary MapPartSummary(IDataReader reader, ref int startingIndex)
         {
-            PartCustomer part = new PartCustomer();
+            PartSummary part = new PartSummary();
+            part.Catagory = new Catagory();
+            part.Make = new Make();
+            part.Make.Model = new Model();
+            part.Available = new Available();
+            part.Condition = new Condition();
+            part.ShippingPolicy = new ShippingPolicy();
 
             part.Id = reader.GetSafeInt32(startingIndex++);
             part.Name = reader.GetSafeString(startingIndex++);
-
-            part.CatagoryId = reader.GetSafeInt32(startingIndex++);
-            part.CatagoryName = reader.GetSafeString(startingIndex++);
-
-            part.MakeId = reader.GetSafeInt32(startingIndex++);
-            part.MakeName = reader.GetSafeString(startingIndex++);
-
-            part.ModelId = reader.GetSafeInt32(startingIndex++);
-            part.ModelName = reader.GetSafeString(startingIndex++);
-
+            part.Catagory.Id = reader.GetSafeInt32(startingIndex++);
+            part.Catagory.Name = reader.GetSafeString(startingIndex++);
+            part.Make.Id = reader.GetSafeInt32(startingIndex++);
+            part.Make.Company = reader.GetSafeString(startingIndex++);
+            part.Make.Model.Id = reader.GetSafeInt32(startingIndex++);
+            part.Make.Model.Name = reader.GetSafeString(startingIndex++);
             part.Year = reader.GetSafeString(startingIndex++);
             part.PartNumber = reader.GetSafeString(startingIndex++);
-
             part.Description = reader.GetSafeString(startingIndex++);
             part.Price = reader.GetSafeDecimal(startingIndex++);
             part.Quantity = reader.GetSafeInt32(startingIndex++);
-            part.ConditionId = reader.GetSafeInt32(startingIndex++);
-            part.ConditionName = reader.GetSafeString(startingIndex++);
-            part.Image = reader.GetSafeString(startingIndex++);
+            part.Condition.Id = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Name = reader.GetSafeString(startingIndex++);
+            part.ShippingPolicy.Id = reader.GetSafeInt32(startingIndex++);
+            part.ShippingPolicy.Name = reader.GetSafeString(startingIndex++);
 
-            part.AvailableId = reader.GetSafeInt32(startingIndex++);
-            part.AvailableStatus = reader.GetSafeString(startingIndex++);
+            string imagePath = reader.GetSafeString(startingIndex++);
+            part.Image = string.IsNullOrEmpty(imagePath)
+                ? null
+                : $"{_staticFileOptions.ImageBaseUrl}{imagePath}";
 
+            part.Available.Id = reader.GetSafeInt32(startingIndex++);
+            part.Available.Status = reader.GetSafeString(startingIndex++);
             part.DateCreated = reader.GetSafeDateTime(startingIndex++);
             part.DateModified = reader.GetSafeDateTime(startingIndex++);
 
             return part;
+        }
+
+        private PartCustomerSummary MapPartCustomerSummary(IDataReader reader, ref int startingIndex)
+        {
+            PartCustomerSummary part = new PartCustomerSummary();
+            part.Catagory = new Catagory();
+            part.Make = new Make();
+            part.Make.Model = new Model();
+            part.Available = new Available();
+            part.Condition = new Condition();
+
+            part.Id = reader.GetSafeInt32(startingIndex++);
+            part.Name = reader.GetSafeString(startingIndex++);
+            part.Catagory.Id = reader.GetSafeInt32(startingIndex++);
+            part.Catagory.Name = reader.GetSafeString(startingIndex++);
+            part.Make.Id = reader.GetSafeInt32(startingIndex++);
+            part.Make.Company = reader.GetSafeString(startingIndex++);
+            part.Make.Model.Id = reader.GetSafeInt32(startingIndex++);
+            part.Make.Model.Name = reader.GetSafeString(startingIndex++);
+            part.Year = reader.GetSafeString(startingIndex++);
+            part.PartNumber = reader.GetSafeString(startingIndex++);
+            part.Description = reader.GetSafeString(startingIndex++);
+            part.Price = reader.GetSafeDecimal(startingIndex++);
+            part.Quantity = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Id = reader.GetSafeInt32(startingIndex++);
+            part.Condition.Name = reader.GetSafeString(startingIndex++);
+
+            string imagePath = reader.GetSafeString(startingIndex++);
+            part.Image = string.IsNullOrEmpty(imagePath)
+                ? null
+                : $"{_staticFileOptions.ImageBaseUrl}{imagePath}";
+
+            part.Available.Id = reader.GetSafeInt32(startingIndex++);
+            part.Available.Status = reader.GetSafeString(startingIndex++);
+            part.DateCreated = reader.GetSafeDateTime(startingIndex++);
+            part.DateModified = reader.GetSafeDateTime(startingIndex++);
+
+            return part;
+        }
+
+        private static PartCategory MapSinglePartCategory(IDataReader reader, ref int startingIndex)
+        {
+            PartCategory category = new PartCategory();
+
+            category.Id = reader.GetSafeInt32(startingIndex++);
+            category.PartId = reader.GetSafeInt32(startingIndex++);
+            category.CatagoryId = reader.GetSafeInt32(startingIndex++);
+            category.CatagoryName = reader.GetSafeString(startingIndex++);
+
+            return category;
+        }
+
+        private static PartFitment MapSinglePartFitment(IDataReader reader, ref int startingIndex)
+        {
+            PartFitment fitment = new PartFitment();
+
+            fitment.Id = reader.GetSafeInt32(startingIndex++);
+            fitment.PartId = reader.GetSafeInt32(startingIndex++);
+            fitment.MakeId = reader.GetSafeInt32(startingIndex++);
+            fitment.Company = reader.GetSafeString(startingIndex++);
+            fitment.ModelId = reader.GetSafeInt32(startingIndex++);
+            fitment.ModelName = reader.GetSafeString(startingIndex++);
+            fitment.YearStart = reader.GetSafeInt32(startingIndex++);
+            fitment.YearEnd = reader.GetSafeInt32(startingIndex++);
+
+            return fitment;
+        }
+
+        #endregion
+
+        #region ---HELPERS---
+
+        private void SavePartCategories(int partId, IEnumerable<PartCategoryAddRequest> categories)
+        {
+            if (categories == null)
+            {
+                return;
+            }
+
+            foreach (PartCategoryAddRequest category in categories)
+            {
+                _data.ExecuteNonQuery("[dbo].[PartCategories_Insert]", col =>
+                {
+                    col.AddWithValue("@PartId", partId);
+                    col.AddWithValue("@CatagoryId", category.CatagoryId);
+
+                    SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
+                    idOut.Direction = ParameterDirection.Output;
+                    col.Add(idOut);
+                });
+            }
+        }
+
+        private void SavePartFitments(int partId, IEnumerable<PartFitmentAddRequest> fitments)
+        {
+            if (fitments == null)
+            {
+                return;
+            }
+
+            foreach (PartFitmentAddRequest fitment in fitments)
+            {
+                _data.ExecuteNonQuery("[dbo].[PartFitments_Insert]", col =>
+                {
+                    col.AddWithValue("@PartId", partId);
+                    col.AddWithValue("@MakeId", fitment.MakeId);
+                    col.AddWithValue("@YearStart", fitment.YearStart);
+                    col.AddWithValue("@YearEnd", fitment.YearEnd);
+
+                    SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
+                    idOut.Direction = ParameterDirection.Output;
+                    col.Add(idOut);
+                });
+            }
+        }
+
+        private static void NormalizeLegacyFields(PartAddRequest model)
+        {
+            if ((model.Categories == null || model.Categories.Count == 0) && model.CatagoryId > 0)
+            {
+                model.Categories = new List<PartCategoryAddRequest>
+                {
+                    new PartCategoryAddRequest { CatagoryId = model.CatagoryId }
+                };
+            }
+            else if (model.Categories != null && model.Categories.Count > 0)
+            {
+                model.CatagoryId = model.Categories[0].CatagoryId;
+            }
+
+            if ((model.Fitments == null || model.Fitments.Count == 0) && model.MakeId > 0)
+            {
+                if (int.TryParse(model.Year, out int parsedYear))
+                {
+                    model.Fitments = new List<PartFitmentAddRequest>
+                    {
+                        new PartFitmentAddRequest
+                        {
+                            MakeId = model.MakeId,
+                            YearStart = parsedYear,
+                            YearEnd = parsedYear
+                        }
+                    };
+                }
+            }
+            else if (model.Fitments != null && model.Fitments.Count > 0)
+            {
+                model.MakeId = model.Fitments[0].MakeId;
+                model.Year = model.Fitments[0].YearStart.ToString();
+            }
+        }
+
+        public Paged<PartSummary> GetPartsPaginated(int pageIndex, int pageSize)
+        {
+            return GetAllPaginated(pageIndex, pageSize);
         }
 
         #endregion
