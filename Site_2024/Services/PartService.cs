@@ -456,6 +456,7 @@ namespace Site_2024.Web.Api.Services
                 col.Add("@LocationId", SqlDbType.Int).Value = (object?)model.LocationId ?? DBNull.Value;
                 col.Add("@shippingPolicyId", SqlDbType.Int).Value = (object?)model.ShippingPolicyId ?? DBNull.Value;
                 col.Add("@OtherBox", SqlDbType.NVarChar, 100).Value = (object?)model.OtherBox ?? DBNull.Value;
+                col.Add("@AdminNotes", SqlDbType.NVarChar, 2000).Value = (object?)model.AdminNotes ?? DBNull.Value;
                 col.Add("@ConditionId", SqlDbType.Int).Value = (object?)model.ConditionId ?? DBNull.Value;
                 col.Add("@LastMovedBy", SqlDbType.Int).Value = userId;
             });
@@ -499,6 +500,7 @@ namespace Site_2024.Web.Api.Services
             col.AddWithValue("@availableId", model.AvailableId);
             col.AddWithValue("@lastmovedby", model.UserId);
             col.AddWithValue("@OtherBox", (object?)model.OtherBox ?? DBNull.Value);
+            col.AddWithValue("@AdminNotes", (object?)model.AdminNotes ?? DBNull.Value);
         }
 
         private Part MapSinglePart(IDataReader reader, ref int startingIndex)
@@ -561,6 +563,7 @@ namespace Site_2024.Web.Api.Services
             part.DateModified = reader.GetSafeDateTime(startingIndex++);
             part.User.Id = reader.GetSafeInt32(startingIndex++);
             part.User.Name = reader.GetSafeString(startingIndex++);
+            part.OtherBox = reader.GetSafeString(startingIndex++);
             part.OtherBox = reader.GetSafeString(startingIndex++);
 
             part.Categories = new List<PartCategory>();

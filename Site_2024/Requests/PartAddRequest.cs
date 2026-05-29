@@ -38,6 +38,8 @@ namespace Site_2024.Web.Api.Requests
         public int AvailableId { get; set; }
         public int UserId { get; set; }
         public string? OtherBox { get; set; }
+        [StringLength(2000)]
+        public string? AdminNotes { get; set; }
         public int? ConditionId { get; set; }
 
         // NEW

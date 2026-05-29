@@ -9,6 +9,7 @@
         public string? Image { get; set; }
         public int? LocationId { get; set; }
         public string? OtherBox { get; set; }
+        public string? AdminNotes { get; set; }
         public string? Year { get; set; }
         public int? ConditionId { get; set; }
         public int? ShippingPolicyId { get; set; }
