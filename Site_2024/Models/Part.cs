@@ -23,6 +23,7 @@ namespace Site_2024.Web.Api.Models
         public DateTime DateModified { get; set; }
         public Site_2024.Web.Api.Models.User.User User { get; set; }
         public string? OtherBox { get; set; }
+        public string? AdminNotes { get; set; }
         public List<PartCategory> Categories { get; set; } = new();
         public List<PartFitment> Fitments { get; set; } = new();
 

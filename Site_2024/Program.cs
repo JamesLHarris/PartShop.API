@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Mvc;
 using Site_2024.Web.Api.Middleware;
+using Site_2024.Web.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
@@ -117,6 +118,11 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IConditionService, ConditionService>();
 builder.Services.AddScoped<IShippingPoliciesService, ShippingPoliciesService>();
 builder.Services.AddScoped<IRefundRequestService, RefundRequestService>();
+
+builder.Services.Configure<ContactEmailSettings>(
+    builder.Configuration.GetSection("ContactEmailSettings"));
+
+builder.Services.AddScoped<ISmtpEmailService, SmtpEmailService>();
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();

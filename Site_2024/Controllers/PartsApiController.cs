@@ -108,6 +108,13 @@ namespace Site_2024.Web.Api.Controllers
                     imageUrl = $"/uploads/items/{fileName}";
                 }
 
+                if (model.AdminNotes != null && model.AdminNotes.Length > 2000)
+                {
+                    code = 400;
+                    response = new ErrorResponse("Admin Notes cannot exceed 2000 characters.");
+                    return StatusCode(code, response);
+                }
+
                 model.Image = imageUrl;      // can be null now (SQL fixed)
                 model.AvailableId = 1;       // server rule: new parts default to Available
                 int userId = user.Id;
@@ -262,6 +269,7 @@ namespace Site_2024.Web.Api.Controllers
                 model.Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim();
                 model.Image = string.IsNullOrWhiteSpace(model.Image) ? null : model.Image.Trim();
                 model.OtherBox = string.IsNullOrWhiteSpace(model.OtherBox) ? null : model.OtherBox.Trim();
+                model.AdminNotes = string.IsNullOrWhiteSpace(model.AdminNotes) ? null : model.AdminNotes.Trim();
 
                 if (model.Quantity.HasValue && model.Quantity.Value < 0)
                 {
@@ -290,6 +298,12 @@ namespace Site_2024.Web.Api.Controllers
                         code = 400;
                         return StatusCode(code, new ErrorResponse("Price can have at most 2 decimal places."));
                     }
+                }
+
+                if (model.AdminNotes != null && model.AdminNotes.Length > 2000)
+                {
+                    code = 400;
+                    return StatusCode(code, new ErrorResponse("Admin Notes cannot exceed 2000 characters."));
                 }
 
                 if (model.Description != null && model.Description.Length > 4000)
@@ -334,7 +348,9 @@ namespace Site_2024.Web.Api.Controllers
                 || !string.IsNullOrWhiteSpace(m.Description)
                 || !string.IsNullOrWhiteSpace(m.Image)
                 || !string.IsNullOrWhiteSpace(m.OtherBox)
+                || !string.IsNullOrWhiteSpace(m.AdminNotes)
                 || !string.IsNullOrWhiteSpace(m.Year);
+
         }
 
         private static bool IsFkViolation(Exception ex)
