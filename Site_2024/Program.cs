@@ -118,6 +118,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IConditionService, ConditionService>();
 builder.Services.AddScoped<IShippingPoliciesService, ShippingPoliciesService>();
 builder.Services.AddScoped<IRefundRequestService, RefundRequestService>();
+builder.Services.AddScoped<IAdminDiscountCodeService, AdminDiscountCodeService>();
 
 builder.Services.Configure<ContactEmailSettings>(
     builder.Configuration.GetSection("ContactEmailSettings"));
