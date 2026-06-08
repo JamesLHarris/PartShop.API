@@ -25,6 +25,7 @@
         public int? BoxId {  get; set; }
         public string BoxName { get; set; }
         public string OtherBox {  get; set; }
+        public string? AdminNotes { get; set; }
         public DateTime? DateModified { get; set; }
         public DateTime? DateCreated { get; set; }
 

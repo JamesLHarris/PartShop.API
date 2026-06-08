@@ -643,6 +643,7 @@ namespace Site_2024.Web.Api.Services
             p.BoxId = reader.GetSafeInt32(startingIndex++);
             p.BoxName = reader.GetSafeString(startingIndex++);
             p.OtherBox = reader.GetSafeString(startingIndex++);
+            p.AdminNotes = reader.GetSafeString(startingIndex++);
             p.DateCreated = reader.GetSafeDateTime(startingIndex++);
             p.DateModified = reader.GetSafeDateTime(startingIndex++);
 
