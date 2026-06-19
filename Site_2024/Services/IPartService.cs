@@ -21,5 +21,6 @@ namespace Site_2024.Web.Api.Services
         void PatchPart(int id, PartPatchRequest model, int userId);
         List<PartSearchResult> Search(PartSearchRequest model);
         Paged<PartCustomerSummary> SearchCustomer(int pageIndex, int pageSize, CustomerSearchRequest model);
+        void UpdateShopifyIds(int partId, long shopifyProductId, long shopifyVariantId, long shopifyInventoryItemId);
     }
 }
