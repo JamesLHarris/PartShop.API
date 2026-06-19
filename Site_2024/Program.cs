@@ -1,16 +1,13 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Serialization;
+using Microsoft.Extensions.FileProviders;
 using Site_2024.Web.Api.Data;
 using Site_2024.Web.Api.Interfaces;
-using Site_2024.Web.Api.Services;
-using Site_2024.Web.Api.Models.User;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.AspNetCore.Mvc;
 using Site_2024.Web.Api.Middleware;
 using Site_2024.Web.Api.Models;
+using Site_2024.Web.Api.Models.User;
+using Site_2024.Web.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
@@ -125,6 +122,13 @@ builder.Services.Configure<ContactEmailSettings>(
 
 builder.Services.AddScoped<ISmtpEmailService, SmtpEmailService>();
 
+builder.Services.Configure<ShopifySettings>(
+    builder.Configuration.GetSection("ShopifySettings"));
+
+builder.Services.AddHttpClient<IShopifyTokenService, ShopifyTokenService>();
+builder.Services.AddHttpClient<IShopifyAdminService, ShopifyAdminService>();
+builder.Services.AddScoped<IShopifyPartSyncService, ShopifyPartSyncService>();
+
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();
 builder.Services.Configure<StaticFileOptions>(
@@ -156,7 +160,7 @@ app.UseStaticFiles(new StaticFileOptions
 
 
 
-app.UseRouting();     
+app.UseRouting();
 app.UseCors("CorsPolicy");
 //app.UseHttpsRedirection();
 app.UseAuthentication();

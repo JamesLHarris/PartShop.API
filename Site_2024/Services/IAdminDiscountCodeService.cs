@@ -11,5 +11,6 @@ namespace Site_2024.Web.Api.Services
         AdminDiscountCode? GetById(int id);
         Paged<AdminDiscountCode>? GetPaginated(int pageIndex, int pageSize, AdminDiscountCodeSearchRequest model);
         void MarkShopifyCreated(int id, AdminDiscountCodeShopifyCreatedRequest model);
+        void MarkError(int id, string adminNotes);
     }
 }

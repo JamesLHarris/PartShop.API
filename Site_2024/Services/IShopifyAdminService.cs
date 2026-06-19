@@ -1,0 +1,16 @@
+﻿using Site_2024.Web.Api.Models;
+using Site_2024.Web.Api.Models.Shopify;
+
+namespace Site_2024.Web.Api.Services
+{
+    public interface IShopifyAdminService
+    {
+        Task<ShopifyCreateProductResult> CreateProductForPartAsync(Part part);
+        Task<List<ShopifyLocationResult>> GetLocationsAsync();
+        Task<ShopifyProductInventorySyncResult> SyncProductDetailsForPartAsync(Part part);
+        Task<ShopifyDiscountCreateResult> CreateBasicDiscountCodeAsync(AdminDiscountCode discount);
+        Task<ShopifyDiscountDeactivateResult> DeactivateDiscountCodeAsync(string shopifyDiscountGid);
+        Task<ShopifyProductPublishResult> PublishProductForPartAsync(Part part);
+        Task<ShopifyProductPublishResult> UnpublishProductForPartAsync(Part part);
+    }
+}

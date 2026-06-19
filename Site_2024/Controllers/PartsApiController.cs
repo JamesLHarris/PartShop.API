@@ -1,21 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
 using Site_2024.Models.Domain.Parts;
 using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models;
+using Site_2024.Web.Api.Models.Shopify;
 using Site_2024.Web.Api.Models.User;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
-using System;
-using System.Collections.Generic;
-using System.Drawing.Printing;
-using System.IO;
 
 namespace Site_2024.Web.Api.Controllers
 {
@@ -26,6 +19,8 @@ namespace Site_2024.Web.Api.Controllers
         private readonly IPartService _service;
         private readonly IPartImageService _partImageService;
         private readonly ILocationService _locationService;
+        private readonly IShopifyPartSyncService _shopifyPartSyncService;
+        private readonly IShopifyAdminService _shopifyAdminService;
         private readonly IAuthenticationService<IUserAuthData> _authService;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
@@ -33,6 +28,8 @@ namespace Site_2024.Web.Api.Controllers
             IPartService service,
             IPartImageService partImageService,
             ILocationService locationService,
+            IShopifyPartSyncService shopifyPartSyncService,
+            IShopifyAdminService shopifyAdminService,
             ILogger<PartsApiController> logger,
             IAuthenticationService<IUserAuthData> authService,
             IWebHostEnvironment webHostEnvironment
@@ -41,13 +38,15 @@ namespace Site_2024.Web.Api.Controllers
             _service = service;
             _partImageService = partImageService;
             _locationService = locationService;
+            _shopifyPartSyncService = shopifyPartSyncService;
+            _shopifyAdminService = shopifyAdminService;
             _authService = authService;
             _webHostEnvironment = webHostEnvironment;
         }
 
         [HttpPost("add-new")]
         [Authorize(Policy = "AdminAction")]
-        public ActionResult<ItemResponse<int>> Add([FromForm] PartAddRequest model, IFormFile? image)
+        public async Task<ActionResult<ItemResponse<int>>> Add([FromForm] PartAddRequest model, IFormFile? image)
         {
             int code = 201;
             BaseResponse response;
@@ -62,7 +61,7 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, response);
                 }
 
-                // Validate LocationId exists (Location table is already leaf-level: includes boxId)
+                // Validate LocationId exists
                 var loc = _locationService.GetLocationById(model.LocationId);
                 if (loc == null)
                 {
@@ -85,7 +84,6 @@ namespace Site_2024.Web.Api.Controllers
                         return StatusCode(code, response);
                     }
 
-                    // 5MB cap (adjust if you want)
                     const long maxBytes = 5 * 1024 * 1024;
                     if (image.Length > maxBytes)
                     {
@@ -102,7 +100,7 @@ namespace Site_2024.Web.Api.Controllers
 
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
-                        image.CopyTo(stream);
+                        await image.CopyToAsync(stream);
                     }
 
                     imageUrl = $"/uploads/items/{fileName}";
@@ -115,19 +113,151 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, response);
                 }
 
-                model.Image = imageUrl;      // can be null now (SQL fixed)
-                model.AvailableId = 1;       // server rule: new parts default to Available
+                model.Image = imageUrl;
+                model.AvailableId = 1; // server rule: new parts default to Available
+
                 int userId = user.Id;
 
+                // 1. Create the part locally first.
                 int id = _service.Insert(model, userId);
 
+                // 2. Then try Shopify sync.
+                // Important: Shopify failure should not fail local part creation.
+                try
+                {
+                    ShopifyPartSyncResult shopifyResult =
+                        await _shopifyPartSyncService.CreateAndSyncProductForPartAsync(id);
+
+                    base.Logger.LogInformation(
+                        "Shopify product created for PartId {PartId}. ShopifyProductId: {ShopifyProductId}, ShopifyVariantId: {ShopifyVariantId}, ShopifyInventoryItemId: {ShopifyInventoryItemId}",
+                        id,
+                        shopifyResult.CreateResult.ProductId,
+                        shopifyResult.CreateResult.VariantId,
+                        shopifyResult.CreateResult.InventoryItemId);
+                }
+                catch (Exception shopifyEx)
+                {
+                    base.Logger.LogError(
+                        shopifyEx,
+                        "Shopify sync failed for newly created PartId {PartId}. Local part was still created.",
+                        id);
+
+                    // Later we can save this to a ShopifySyncStatus / ShopifySyncError field.
+                    // For now, local add still succeeds.
+                }
+
+                // 3. Keep the same response so your front end does not need to change.
                 response = new ItemResponse<int> { Item = id };
             }
             catch (Exception ex)
             {
                 code = 500;
                 response = new ErrorResponse(ex.Message);
-                base.Logger.LogError(ex.ToString());
+                base.Logger.LogError(ex, "Add part failed.");
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpPost("{id:int}/shopify/publish")]
+        [Authorize(Policy = "AdminAction")]
+        public async Task<ActionResult<ItemResponse<ShopifyProductPublishResult>>> PublishShopifyProduct(int id)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                var user = _authService.GetCurrentUser();
+
+                if (user == null)
+                {
+                    code = 401;
+                    response = new ErrorResponse("You must be logged in.");
+                    return StatusCode(code, response);
+                }
+
+                Part part = _service.GetPartById(id);
+
+                if (part == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Part not found.");
+                    return StatusCode(code, response);
+                }
+
+                if (!part.ShopifyProductId.HasValue)
+                {
+                    code = 400;
+                    response = new ErrorResponse("This part has not been synced to Shopify yet.");
+                    return StatusCode(code, response);
+                }
+
+                ShopifyProductPublishResult publishResult =
+                    await _shopifyAdminService.PublishProductForPartAsync(part);
+
+                response = new ItemResponse<ShopifyProductPublishResult>
+                {
+                    Item = publishResult
+                };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Shopify publish failed for PartId {PartId}", id);
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpPost("{id:int}/shopify/unpublish")]
+        [Authorize(Policy = "AdminAction")]
+        public async Task<ActionResult<ItemResponse<ShopifyProductPublishResult>>> UnpublishShopifyProduct(int id)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                var user = _authService.GetCurrentUser();
+
+                if (user == null)
+                {
+                    code = 401;
+                    response = new ErrorResponse("You must be logged in.");
+                    return StatusCode(code, response);
+                }
+
+                Part part = _service.GetPartById(id);
+
+                if (part == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Part not found.");
+                    return StatusCode(code, response);
+                }
+
+                if (!part.ShopifyProductId.HasValue)
+                {
+                    code = 400;
+                    response = new ErrorResponse("This part has not been synced to Shopify yet.");
+                    return StatusCode(code, response);
+                }
+
+                ShopifyProductPublishResult result =
+                    await _shopifyAdminService.UnpublishProductForPartAsync(part);
+
+                response = new ItemResponse<ShopifyProductPublishResult>
+                {
+                    Item = result
+                };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Shopify unpublish failed for PartId {PartId}", id);
             }
 
             return StatusCode(code, response);

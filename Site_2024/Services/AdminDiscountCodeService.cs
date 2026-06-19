@@ -3,8 +3,6 @@ using Site_2024.Web.Api.Extensions;
 using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Requests;
-using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 
@@ -132,6 +130,20 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@Id", id);
                     col.AddWithValue("@DeactivatedByUserId", userId.HasValue ? userId.Value : DBNull.Value);
                     col.AddWithValue("@AdminNotes", string.IsNullOrWhiteSpace(model?.AdminNotes) ? DBNull.Value : model.AdminNotes);
+                });
+        }
+
+        public void MarkError(int id, string adminNotes)
+        {
+            const string procName = "[dbo].[AdminDiscountCodes_MarkError]";
+
+            _data.ExecuteNonQuery(procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@Id", id);
+                    col.AddWithValue("@AdminNotes", string.IsNullOrWhiteSpace(adminNotes)
+                        ? DBNull.Value
+                        : adminNotes);
                 });
         }
 

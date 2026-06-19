@@ -461,6 +461,18 @@ namespace Site_2024.Web.Api.Services
                 col.Add("@LastMovedBy", SqlDbType.Int).Value = userId;
             });
         }
+        public void UpdateShopifyIds(int partId, long shopifyProductId, long shopifyVariantId, long shopifyInventoryItemId)
+        {
+            const string procName = "[dbo].[Parts_ShopifyIds_Update]";
+
+            _data.ExecuteNonQuery(procName, col =>
+            {
+                col.AddWithValue("@Id", partId);
+                col.AddWithValue("@ShopifyProductId", shopifyProductId);
+                col.AddWithValue("@ShopifyVariantId", shopifyVariantId);
+                col.AddWithValue("@ShopifyInventoryItemId", shopifyInventoryItemId);
+            });
+        }
 
         #endregion
 
@@ -564,7 +576,10 @@ namespace Site_2024.Web.Api.Services
             part.User.Id = reader.GetSafeInt32(startingIndex++);
             part.User.Name = reader.GetSafeString(startingIndex++);
             part.OtherBox = reader.GetSafeString(startingIndex++);
-            part.OtherBox = reader.GetSafeString(startingIndex++);
+            part.AdminNotes = reader.GetSafeString(startingIndex++);
+            part.ShopifyProductId = reader.GetSafeInt64Nullable(startingIndex++);
+            part.ShopifyVariantId = reader.GetSafeInt64Nullable(startingIndex++);
+            part.ShopifyInventoryItemId = reader.GetSafeInt64Nullable(startingIndex++);
 
             part.Categories = new List<PartCategory>();
             part.Fitments = new List<PartFitment>();
