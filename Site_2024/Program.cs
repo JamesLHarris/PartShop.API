@@ -128,6 +128,10 @@ builder.Services.Configure<ShopifySettings>(
 builder.Services.AddHttpClient<IShopifyTokenService, ShopifyTokenService>();
 builder.Services.AddHttpClient<IShopifyAdminService, ShopifyAdminService>();
 builder.Services.AddScoped<IShopifyPartSyncService, ShopifyPartSyncService>();
+builder.Services.AddHttpClient<IShopifyOrderService, ShopifyOrderService>();
+builder.Services.AddScoped<IShopifyWebhookService, ShopifyWebhookService>();
+builder.Services.AddHttpClient<IShopifyWebhookSubscriptionService, ShopifyWebhookSubscriptionService>();
+builder.Services.AddScoped<IShopifyCheckoutService, ShopifyCheckoutService>();
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddSingleton<IAuthenticationService<IUserAuthData>, AuthenticationService>();

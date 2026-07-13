@@ -11,5 +11,6 @@
         public string DefaultProductType { get; set; } = "Used Auto Part";
         public bool CreateProductsAsDraft { get; set; } = true;
         public string DefaultLocationGid { get; set; } = string.Empty;
+        public string OnlineStorePublicationGid { get; set; } = string.Empty;
     }
 }

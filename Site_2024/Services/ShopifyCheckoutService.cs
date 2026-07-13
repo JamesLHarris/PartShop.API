@@ -1,0 +1,198 @@
+using Microsoft.Extensions.Options;
+using Site_2024.Web.Api.Extensions;
+using Site_2024.Web.Api.Interfaces;
+using Site_2024.Web.Api.Models;
+using System.Data;
+using System.Data.SqlClient;
+using System.Text;
+
+namespace Site_2024.Web.Api.Services
+{
+    public class ShopifyCheckoutService : IShopifyCheckoutService
+    {
+        private readonly IDataProvider _data;
+        private readonly ShopifySettings _shopifySettings;
+        private readonly ILogger<ShopifyCheckoutService> _logger;
+
+        public ShopifyCheckoutService(
+            IDataProvider data,
+            IOptions<ShopifySettings> shopifySettings,
+            ILogger<ShopifyCheckoutService> logger)
+        {
+            _data = data;
+            _shopifySettings = shopifySettings.Value;
+            _logger = logger;
+        }
+
+        public ShopifyCheckoutResult CreateCheckoutUrl(ShopifyCheckoutRequest request)
+        {
+            if (request == null || request.Items == null || request.Items.Count == 0)
+            {
+                throw new InvalidOperationException("At least one checkout item is required.");
+            }
+
+            string shopBaseUrl = NormalizeShopDomain(_shopifySettings.ShopDomain);
+
+            List<ShopifyCheckoutLineItemResult> lineItems = new();
+            List<string> errors = new();
+
+            foreach (ShopifyCheckoutLineItemRequest requestItem in request.Items)
+            {
+                if (requestItem == null || requestItem.PartId <= 0)
+                {
+                    errors.Add("Invalid cart item.");
+                    continue;
+                }
+
+                int requestedQuantity = requestItem.Quantity <= 0 ? 1 : requestItem.Quantity;
+                ShopifyCheckoutPart? part = GetCheckoutPart(requestItem.PartId);
+
+                if (part == null)
+                {
+                    errors.Add($"Part #{requestItem.PartId} was not found.");
+                    continue;
+                }
+
+                if (!IsAvailable(part.AvailableStatus))
+                {
+                    errors.Add($"{part.PartName} is no longer available.");
+                    continue;
+                }
+
+                if (part.ShopifyOrderId.HasValue || part.SoldOnUtc.HasValue)
+                {
+                    errors.Add($"{part.PartName} has already been sold.");
+                    continue;
+                }
+
+                if (!part.ShopifyVariantId.HasValue || part.ShopifyVariantId.Value <= 0)
+                {
+                    errors.Add($"{part.PartName} is not ready for Shopify checkout yet.");
+                    continue;
+                }
+
+                if (part.Quantity <= 0)
+                {
+                    errors.Add($"{part.PartName} is out of stock.");
+                    continue;
+                }
+
+                if (requestedQuantity > part.Quantity)
+                {
+                    errors.Add($"Only {part.Quantity} of {part.PartName} is available.");
+                    continue;
+                }
+
+                lineItems.Add(new ShopifyCheckoutLineItemResult
+                {
+                    PartId = part.PartId,
+                    PartName = part.PartName,
+                    PartNumber = part.PartNumber,
+                    Quantity = requestedQuantity,
+                    ShopifyVariantId = part.ShopifyVariantId.Value,
+                    Price = part.Price
+                });
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException(string.Join(" ", errors));
+            }
+
+            if (lineItems.Count == 0)
+            {
+                throw new InvalidOperationException("No valid checkout items were found.");
+            }
+
+            string variantPairs = string.Join(",", lineItems.Select(item => $"{item.ShopifyVariantId}:{item.Quantity}"));
+            string partIds = string.Join(",", lineItems.Select(item => item.PartId));
+
+            StringBuilder url = new();
+            url.Append(shopBaseUrl.TrimEnd('/'));
+            url.Append("/cart/");
+            url.Append(variantPairs);
+
+            // These query params are optional, but useful for identifying the handoff in Shopify analytics/order metadata.
+            List<string> query = new()
+            {
+                "utm_source=site_2024",
+                "utm_medium=site_checkout",
+                $"attributes[site_2024_part_ids]={Uri.EscapeDataString(partIds)}"
+            };
+
+            url.Append('?');
+            url.Append(string.Join("&", query));
+
+            _logger.LogInformation(
+                "Created Shopify checkout URL for local parts {PartIds} using Shopify variants {VariantIds}.",
+                partIds,
+                string.Join(",", lineItems.Select(item => item.ShopifyVariantId)));
+
+            return new ShopifyCheckoutResult
+            {
+                CheckoutUrl = url.ToString(),
+                Items = lineItems
+            };
+        }
+
+        private ShopifyCheckoutPart? GetCheckoutPart(int partId)
+        {
+            const string procName = "[dbo].[Parts_Checkout_GetById]";
+            ShopifyCheckoutPart? part = null;
+
+            _data.ExecuteCmd(
+                procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@PartId", partId);
+                },
+                singleRecordMapper: delegate (IDataReader reader, short set)
+                {
+                    int index = 0;
+
+                    part = new ShopifyCheckoutPart
+                    {
+                        PartId = reader.GetSafeInt32(index++),
+                        PartName = reader.GetSafeString(index++),
+                        PartNumber = reader.GetSafeString(index++),
+                        Price = reader.GetSafeDecimal(index++),
+                        Quantity = reader.GetSafeInt32(index++),
+                        AvailableId = reader.GetSafeInt32(index++),
+                        AvailableStatus = reader.GetSafeString(index++),
+                        ShopifyProductId = reader.GetSafeInt64Nullable(index++),
+                        ShopifyVariantId = reader.GetSafeInt64Nullable(index++),
+                        ShopifyOrderId = reader.GetSafeInt64Nullable(index++),
+                        SoldOnUtc = reader.GetSafeDateTimeNullable(index++)
+                    };
+                });
+
+            return part;
+        }
+
+        private static bool IsAvailable(string? availableStatus)
+        {
+            return string.Equals(
+                availableStatus?.Trim(),
+                "Available",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeShopDomain(string shopDomain)
+        {
+            shopDomain = (shopDomain ?? string.Empty).Trim().TrimEnd('/');
+
+            if (string.IsNullOrWhiteSpace(shopDomain))
+            {
+                throw new InvalidOperationException("Shopify shop domain is missing from ShopifySettings:ShopDomain.");
+            }
+
+            if (!shopDomain.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+                !shopDomain.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                shopDomain = $"https://{shopDomain}";
+            }
+
+            return shopDomain;
+        }
+    }
+}
