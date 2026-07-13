@@ -421,76 +421,18 @@ mutation CreateDiscountCode($basicCodeDiscount: DiscountCodeBasicInput!) {
 
             string productGid = $"gid://shopify/Product/{part.ShopifyProductId.Value}";
 
-            string mutation = @"
-mutation PublishProduct($product: ProductUpdateInput!) {
-  productUpdate(product: $product) {
-    product {
-      id
-      status
-    }
-    userErrors {
-      field
-      message
-    }
-  }
-}";
-
-            var variables = new
-            {
-                product = new
-                {
-                    id = productGid,
-                    status = "ACTIVE"
-                }
-            };
-
-            using JsonDocument doc = await SendGraphQlAsync(mutation, variables);
-
-            JsonElement root = doc.RootElement;
-
-            if (root.TryGetProperty("errors", out JsonElement topErrors))
-            {
-                throw new ApplicationException($"Shopify GraphQL error: {topErrors}");
-            }
-
-            JsonElement payload = root
-                .GetProperty("data")
-                .GetProperty("productUpdate");
-
-            JsonElement userErrors = payload.GetProperty("userErrors");
-
-            if (userErrors.GetArrayLength() > 0)
-            {
-                string messages = string.Join("; ",
-                    userErrors.EnumerateArray().Select(e =>
-                    {
-                        string field = e.TryGetProperty("field", out JsonElement f)
-                            ? f.ToString()
-                            : string.Empty;
-
-                        string message = e.TryGetProperty("message", out JsonElement m)
-                            ? m.GetString() ?? string.Empty
-                            : string.Empty;
-
-                        return string.IsNullOrWhiteSpace(field)
-                            ? message
-                            : $"{field}: {message}";
-                    }));
-
-                throw new ApplicationException($"Shopify productUpdate publish failed: {messages}");
-            }
-
-            JsonElement product = payload.GetProperty("product");
-
-            string returnedProductGid = product.GetProperty("id").GetString() ?? productGid;
-            string status = product.GetProperty("status").GetString() ?? string.Empty;
+            string status = await UpdateProductStatusAsync(productGid, "ACTIVE", "publish");
+            string onlineStorePublicationGid = await GetOnlineStorePublicationGidAsync();
+            bool publishedToOnlineStore = await PublishProductToPublicationAsync(productGid, onlineStorePublicationGid);
 
             return new ShopifyProductPublishResult
             {
                 PartId = part.Id,
-                ProductGid = returnedProductGid,
+                ProductGid = productGid,
                 ProductId = part.ShopifyProductId.Value,
-                Status = status
+                Status = status,
+                OnlineStorePublicationGid = onlineStorePublicationGid,
+                PublishedToOnlineStore = publishedToOnlineStore
             };
         }
 
@@ -503,8 +445,25 @@ mutation PublishProduct($product: ProductUpdateInput!) {
 
             string productGid = $"gid://shopify/Product/{part.ShopifyProductId.Value}";
 
+            string onlineStorePublicationGid = await GetOnlineStorePublicationGidAsync();
+            bool publishedToOnlineStore = await UnpublishProductFromPublicationAsync(productGid, onlineStorePublicationGid);
+            string status = await UpdateProductStatusAsync(productGid, "DRAFT", "unpublish");
+
+            return new ShopifyProductPublishResult
+            {
+                PartId = part.Id,
+                ProductGid = productGid,
+                ProductId = part.ShopifyProductId.Value,
+                Status = status,
+                OnlineStorePublicationGid = onlineStorePublicationGid,
+                PublishedToOnlineStore = publishedToOnlineStore
+            };
+        }
+
+        private async Task<string> UpdateProductStatusAsync(string productGid, string status, string actionName)
+        {
             string mutation = @"
-mutation UnpublishProduct($product: ProductUpdateInput!) {
+mutation UpdateProductStatus($product: ProductUpdateInput!) {
   productUpdate(product: $product) {
     product {
       id
@@ -522,7 +481,7 @@ mutation UnpublishProduct($product: ProductUpdateInput!) {
                 product = new
                 {
                     id = productGid,
-                    status = "DRAFT"
+                    status = status
                 }
             };
 
@@ -539,38 +498,197 @@ mutation UnpublishProduct($product: ProductUpdateInput!) {
                 .GetProperty("data")
                 .GetProperty("productUpdate");
 
-            JsonElement userErrors = payload.GetProperty("userErrors");
-
-            if (userErrors.GetArrayLength() > 0)
-            {
-                string messages = string.Join("; ",
-                    userErrors.EnumerateArray().Select(e =>
-                    {
-                        string field = e.TryGetProperty("field", out JsonElement f)
-                            ? f.ToString()
-                            : string.Empty;
-
-                        string message = e.TryGetProperty("message", out JsonElement m)
-                            ? m.GetString() ?? string.Empty
-                            : string.Empty;
-
-                        return string.IsNullOrWhiteSpace(field)
-                            ? message
-                            : $"{field}: {message}";
-                    }));
-
-                throw new ApplicationException($"Shopify productUpdate unpublish failed: {messages}");
-            }
+            ThrowIfUserErrors(payload.GetProperty("userErrors"), $"Shopify productUpdate {actionName} failed");
 
             JsonElement product = payload.GetProperty("product");
+            return product.GetProperty("status").GetString() ?? status;
+        }
 
-            return new ShopifyProductPublishResult
+        private async Task<string> GetOnlineStorePublicationGidAsync()
+        {
+            if (!string.IsNullOrWhiteSpace(_settings.OnlineStorePublicationGid))
             {
-                PartId = part.Id,
-                ProductGid = product.GetProperty("id").GetString() ?? productGid,
-                ProductId = part.ShopifyProductId.Value,
-                Status = product.GetProperty("status").GetString() ?? string.Empty
+                return _settings.OnlineStorePublicationGid.Trim();
+            }
+
+            string query = @"
+query GetPublications {
+  publications(first: 20) {
+    nodes {
+      id
+      autoPublish
+      supportsFuturePublishing
+      catalog {
+        id
+        title
+      }
+    }
+  }
+}";
+
+            using JsonDocument doc = await SendGraphQlAsync(query, new { });
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("errors", out JsonElement topErrors))
+            {
+                throw new ApplicationException($"Shopify GraphQL error: {topErrors}");
+            }
+
+            JsonElement nodes = root
+                .GetProperty("data")
+                .GetProperty("publications")
+                .GetProperty("nodes");
+
+            string? firstFuturePublishingPublication = null;
+            string? firstPublication = null;
+
+            foreach (JsonElement node in nodes.EnumerateArray())
+            {
+                string publicationGid = node.GetProperty("id").GetString() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(publicationGid))
+                {
+                    continue;
+                }
+
+                firstPublication ??= publicationGid;
+
+                bool supportsFuturePublishing = node.TryGetProperty("supportsFuturePublishing", out JsonElement futureEl)
+                    && futureEl.ValueKind == JsonValueKind.True;
+
+                if (supportsFuturePublishing)
+                {
+                    firstFuturePublishingPublication ??= publicationGid;
+                }
+
+                if (node.TryGetProperty("catalog", out JsonElement catalog) &&
+                    catalog.ValueKind == JsonValueKind.Object &&
+                    catalog.TryGetProperty("title", out JsonElement titleEl))
+                {
+                    string title = titleEl.GetString() ?? string.Empty;
+
+                    if (string.Equals(title.Trim(), "Online Store", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return publicationGid;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(firstFuturePublishingPublication))
+            {
+                return firstFuturePublishingPublication;
+            }
+
+            throw new ApplicationException(
+                "Could not find the Shopify Online Store publication. Add Shopify:OnlineStorePublicationGid to configuration, or make sure the app has read_publications/write_publications scopes.");
+        }
+
+        private async Task<bool> PublishProductToPublicationAsync(string productGid, string publicationGid)
+        {
+            string mutation = @"
+mutation PublishProductToOnlineStore($id: ID!, $publicationId: ID!) {
+  publishablePublish(id: $id, input: { publicationId: $publicationId }) {
+    publishable {
+      publishedOnPublication(publicationId: $publicationId)
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}";
+
+            var variables = new
+            {
+                id = productGid,
+                publicationId = publicationGid
             };
+
+            using JsonDocument doc = await SendGraphQlAsync(mutation, variables);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("errors", out JsonElement topErrors))
+            {
+                throw new ApplicationException($"Shopify GraphQL error: {topErrors}");
+            }
+
+            JsonElement payload = root
+                .GetProperty("data")
+                .GetProperty("publishablePublish");
+
+            ThrowIfUserErrors(payload.GetProperty("userErrors"), "Shopify publishablePublish failed");
+
+            return payload
+                .GetProperty("publishable")
+                .GetProperty("publishedOnPublication")
+                .GetBoolean();
+        }
+
+        private async Task<bool> UnpublishProductFromPublicationAsync(string productGid, string publicationGid)
+        {
+            string mutation = @"
+mutation UnpublishProductFromOnlineStore($id: ID!, $publicationId: ID!) {
+  publishableUnpublish(id: $id, input: { publicationId: $publicationId }) {
+    publishable {
+      publishedOnPublication(publicationId: $publicationId)
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}";
+
+            var variables = new
+            {
+                id = productGid,
+                publicationId = publicationGid
+            };
+
+            using JsonDocument doc = await SendGraphQlAsync(mutation, variables);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("errors", out JsonElement topErrors))
+            {
+                throw new ApplicationException($"Shopify GraphQL error: {topErrors}");
+            }
+
+            JsonElement payload = root
+                .GetProperty("data")
+                .GetProperty("publishableUnpublish");
+
+            ThrowIfUserErrors(payload.GetProperty("userErrors"), "Shopify publishableUnpublish failed");
+
+            return payload
+                .GetProperty("publishable")
+                .GetProperty("publishedOnPublication")
+                .GetBoolean();
+        }
+
+        private static void ThrowIfUserErrors(JsonElement userErrors, string failurePrefix)
+        {
+            if (userErrors.GetArrayLength() <= 0)
+            {
+                return;
+            }
+
+            string messages = string.Join("; ",
+                userErrors.EnumerateArray().Select(e =>
+                {
+                    string field = e.TryGetProperty("field", out JsonElement f)
+                        ? f.ToString()
+                        : string.Empty;
+
+                    string message = e.TryGetProperty("message", out JsonElement m)
+                        ? m.GetString() ?? string.Empty
+                        : string.Empty;
+
+                    return string.IsNullOrWhiteSpace(field)
+                        ? message
+                        : $"{field}: {message}";
+                }));
+
+            throw new ApplicationException($"{failurePrefix}: {messages}");
         }
 
         private async Task<JsonDocument> SendGraphQlAsync(string query, object variables)
