@@ -166,18 +166,17 @@ query GetRecentOrders($first: Int!, $query: String) {
                         continue;
                     }
 
-                    if (item.LocalPart.ShopifyOrderId.HasValue && item.LocalPart.ShopifyOrderId.Value == order.ShopifyOrderId)
+                    if (item.ShopifyLineItemId <= 0)
                     {
-                        row.WasAlreadySynced = true;
-                        row.Message = "Already synced to this Shopify order.";
-                        result.AlreadySyncedCount++;
+                        row.Message = "Skipped because the Shopify line item did not include a valid id.";
+                        result.SkippedCount++;
                         result.Items.Add(row);
                         continue;
                     }
 
-                    if (item.LocalPart.ShopifyOrderId.HasValue && item.LocalPart.ShopifyOrderId.Value != order.ShopifyOrderId)
+                    if (!item.ShopifyVariantId.HasValue || item.ShopifyVariantId.Value <= 0)
                     {
-                        row.Message = $"Skipped because local part is already attached to Shopify order {item.LocalPart.ShopifyOrderId.Value}.";
+                        row.Message = "Skipped because the Shopify line item did not include a variant id.";
                         result.SkippedCount++;
                         result.Items.Add(row);
                         continue;
@@ -188,14 +187,16 @@ query GetRecentOrders($first: Int!, $query: String) {
                         bool wasAlreadySynced = MarkLocalPartSoldFromOrder(
                             item.LocalPart.PartId,
                             order.ShopifyOrderId,
+                            item.ShopifyLineItemId,
+                            item.ShopifyVariantId.Value,
                             item.Quantity,
                             userId);
 
                         row.WasAlreadySynced = wasAlreadySynced;
                         row.WasSynced = !wasAlreadySynced;
                         row.Message = wasAlreadySynced
-                            ? "Already synced to this Shopify order."
-                            : "Marked local part sold/unavailable.";
+                            ? "This Shopify order line was already recorded."
+                            : "Recorded confirmed sale and updated local quantity.";
 
                         if (wasAlreadySynced)
                         {
@@ -236,7 +237,13 @@ query GetRecentOrders($first: Int!, $query: String) {
             return normalized == "PAID" || normalized == "PARTIALLY_PAID";
         }
 
-        private bool MarkLocalPartSoldFromOrder(int partId, long shopifyOrderId, int quantityPurchased, int userId)
+        private bool MarkLocalPartSoldFromOrder(
+            int partId,
+            long shopifyOrderId,
+            long shopifyLineItemId,
+            long shopifyVariantId,
+            int quantityPurchased,
+            int userId)
         {
             bool wasAlreadySynced = false;
             const string procName = "[dbo].[Parts_MarkSoldFromShopifyOrder]";
@@ -246,7 +253,10 @@ query GetRecentOrders($first: Int!, $query: String) {
                 {
                     col.AddWithValue("@PartId", partId);
                     col.AddWithValue("@ShopifyOrderId", shopifyOrderId);
+                    col.AddWithValue("@ShopifyLineItemId", shopifyLineItemId);
+                    col.AddWithValue("@ShopifyVariantId", shopifyVariantId);
                     col.AddWithValue("@QuantityPurchased", quantityPurchased <= 0 ? 1 : quantityPurchased);
+                    col.AddWithValue("@Source", "ShopifyManualSync");
                     col.AddWithValue("@LastMovedBy", userId);
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)

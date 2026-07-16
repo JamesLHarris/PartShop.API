@@ -1,15 +1,11 @@
-﻿using Site_2024.Web.Api.Interfaces;
-using Site_2024.Web.Api.Models;
-using System.Data;
-using System.Linq;
-using Site_2024.Web.Api.Extensions;
-using System.Data.SqlClient;
-using Site_2024.Web.Api.Constructors;
-using Site_2024.Web.Api.Requests;
 using Microsoft.Extensions.Options;
-using Site_2024.Web.Api.Configurations;
-using Microsoft.Extensions.Logging;
-using Site_2024.Models.Domain.Parts;
+using Site_2024.Web.Api.Constructors;
+using Site_2024.Web.Api.Extensions;
+using Site_2024.Web.Api.Interfaces;
+using Site_2024.Web.Api.Models;
+using Site_2024.Web.Api.Requests;
+using System.Data;
+using System.Data.SqlClient;
 using StaticFileOptions = Site_2024.Web.Api.Configurations.StaticFileOptions;
 
 namespace Site_2024.Web.Api.Services
@@ -380,7 +376,13 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@CatagoryId", (object?)model.CatagoryId ?? DBNull.Value);
                     col.AddWithValue("@MakeId", (object?)model.MakeId ?? DBNull.Value);
                     col.AddWithValue("@ModelId", (object?)model.ModelId ?? DBNull.Value);
+                    col.AddWithValue("@Year", (object?)model.Year ?? DBNull.Value);
                     col.AddWithValue("@ConditionId", (object?)model.ConditionId ?? DBNull.Value);
+
+                    // Customer-facing search must never expose unavailable listings.
+                    // Do not trust or forward an AvailableId supplied by the browser.
+                    col.AddWithValue("@AvailableId", 1);
+
                     col.AddWithValue("@PriceMin", (object?)model.PriceMin ?? DBNull.Value);
                     col.AddWithValue("@PriceMax", (object?)model.PriceMax ?? DBNull.Value);
                     col.AddWithValue("@PageIndex", pageIndex);
@@ -619,6 +621,7 @@ namespace Site_2024.Web.Api.Services
 
             part.Available.Id = reader.GetSafeInt32(startingIndex++);
             part.Available.Status = reader.GetSafeString(startingIndex++);
+            part.QuantitySold = reader.GetSafeInt64(startingIndex++);
 
             part.Categories = new List<PartCategory>();
             part.Fitments = new List<PartFitment>();

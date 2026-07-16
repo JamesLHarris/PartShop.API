@@ -1,9 +1,27 @@
-﻿namespace Site_2024.Web.Api.Requests
+using Microsoft.AspNetCore.Mvc;
+
+namespace Site_2024.Web.Api.Requests
 {
     public class CustomerSearchRequest
     {
         public string? q { get; set; }
+
+        // Legacy spelling used throughout the existing database/service layer.
+        // Keep it so current C# code and stored procedure parameter mapping do not
+        // need to change.
         public int? CatagoryId { get; set; }
+
+        // Correct public query-string spelling used by the React application:
+        // ?categoryId=24
+        // Assigning this property also populates the legacy CatagoryId property
+        // consumed by PartService.SearchCustomer().
+        [FromQuery(Name = "categoryId")]
+        public int? CategoryId
+        {
+            get => CatagoryId;
+            set => CatagoryId = value;
+        }
+
         public int? MakeId { get; set; }
         public int? ModelId { get; set; }
         public string? Year { get; set; }
