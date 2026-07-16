@@ -128,6 +128,14 @@ namespace Site_2024.Web.Api.Services
                         QuantityPurchased = quantity <= 0 ? 1 : quantity
                     };
 
+                    if (lineItemId <= 0)
+                    {
+                        row.Message = "Skipped because the Shopify line item did not include a valid id.";
+                        result.SkippedCount++;
+                        result.Items.Add(row);
+                        continue;
+                    }
+
                     if (!variantId.HasValue || variantId.Value <= 0)
                     {
                         row.Message = "Skipped because the Shopify line item did not include a variant_id.";
@@ -149,33 +157,18 @@ namespace Site_2024.Web.Api.Services
                     row.PartId = localPart.PartId;
                     row.PartName = localPart.PartName;
 
-                    if (localPart.ShopifyOrderId.HasValue && localPart.ShopifyOrderId.Value == result.ShopifyOrderId)
-                    {
-                        row.WasAlreadySynced = true;
-                        row.Message = "Already synced to this Shopify order.";
-                        result.AlreadySyncedCount++;
-                        result.Items.Add(row);
-                        continue;
-                    }
-
-                    if (localPart.ShopifyOrderId.HasValue && localPart.ShopifyOrderId.Value != result.ShopifyOrderId)
-                    {
-                        row.Message = $"Skipped because local part is already attached to Shopify order {localPart.ShopifyOrderId.Value}.";
-                        result.SkippedCount++;
-                        result.Items.Add(row);
-                        continue;
-                    }
-
                     bool wasAlreadySynced = MarkLocalPartSoldFromOrder(
                         localPart.PartId,
                         result.ShopifyOrderId,
+                        lineItemId,
+                        variantId.Value,
                         row.QuantityPurchased);
 
                     row.WasAlreadySynced = wasAlreadySynced;
                     row.WasSynced = !wasAlreadySynced;
                     row.Message = wasAlreadySynced
-                        ? "Already synced to this Shopify order."
-                        : "Marked local part sold/unavailable.";
+                        ? "This Shopify order line was already recorded."
+                        : "Recorded confirmed sale and updated local quantity.";
 
                     if (wasAlreadySynced)
                     {
@@ -347,7 +340,12 @@ namespace Site_2024.Web.Api.Services
             return match;
         }
 
-        private bool MarkLocalPartSoldFromOrder(int partId, long shopifyOrderId, int quantityPurchased)
+        private bool MarkLocalPartSoldFromOrder(
+            int partId,
+            long shopifyOrderId,
+            long shopifyLineItemId,
+            long shopifyVariantId,
+            int quantityPurchased)
         {
             bool wasAlreadySynced = false;
             const string procName = "[dbo].[Parts_MarkSoldFromShopifyOrder]";
@@ -357,7 +355,10 @@ namespace Site_2024.Web.Api.Services
                 {
                     col.AddWithValue("@PartId", partId);
                     col.AddWithValue("@ShopifyOrderId", shopifyOrderId);
+                    col.AddWithValue("@ShopifyLineItemId", shopifyLineItemId);
+                    col.AddWithValue("@ShopifyVariantId", shopifyVariantId);
                     col.AddWithValue("@QuantityPurchased", quantityPurchased <= 0 ? 1 : quantityPurchased);
+                    col.AddWithValue("@Source", "ShopifyWebhook");
                     col.AddWithValue("@LastMovedBy", DBNull.Value);
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)

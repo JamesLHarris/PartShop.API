@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualBasic;
+using Microsoft.VisualBasic;
 using Site_2024.Web.Api.Models.User;
 
 namespace Site_2024.Web.Api.Models
@@ -14,6 +14,7 @@ namespace Site_2024.Web.Api.Models
         public string Description { get; set; }
         public decimal Price { get; set; }
         public int Quantity { get; set; }
+        public long QuantitySold { get; set; }
         public Location Location { get; set; }
         public string Image {  get; set; }
         public Available Available { get; set; }

@@ -1,7 +1,6 @@
 ﻿using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models;
 using System.Data;
-using System.Linq;
 using Site_2024.Web.Api.Extensions;
 using System.Data.SqlClient;
 using Site_2024.Web.Api.Constructors;
@@ -11,7 +10,7 @@ namespace Site_2024.Web.Api.Services
 {
     public class ModelService : IModelService
     {
-        private IDataProvider _data;
+        private readonly IDataProvider _data;
 
         public ModelService(IDataProvider data)
         {
@@ -22,14 +21,16 @@ namespace Site_2024.Web.Api.Services
 
         public Model GetModelById(int id)
         {
-            string procName = "[dbo].[Model_GetById]";
+            const string procName = "[dbo].[Model_GetById]";
             Model? model = null;
 
-            _data.ExecuteCmd(procName,
+            _data.ExecuteCmd(
+                procName,
                 inputParamMapper: delegate (SqlParameterCollection col)
                 {
                     col.AddWithValue("@Id", id);
-                }, delegate (IDataReader reader, short set)
+                },
+                singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int startingIndex = 0;
                     model = MapSingleModel(reader, ref startingIndex);
@@ -38,20 +39,21 @@ namespace Site_2024.Web.Api.Services
             return model;
         }
 
-        public List<Model> GetByMakeId(int Id)
+        public List<Model> GetByMakeId(int id)
         {
-            string procName = "[dbo].[Model_GetByMakeId]";
+            const string procName = "[dbo].[Model_GetByMakeId]";
             List<Model> models = new();
 
-            _data.ExecuteCmd(procName,
-                inputParamMapper: (SqlParameterCollection col) =>
+            _data.ExecuteCmd(
+                procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
                 {
-                    col.AddWithValue("@makeId", Id);
+                    col.AddWithValue("@makeId", id);
                 },
-                singleRecordMapper: (IDataReader reader, short set) =>
+                singleRecordMapper: delegate (IDataReader reader, short set)
                 {
                     int startingIndex = 0;
-                    Model model = MapSingleModel(reader, ref startingIndex);
+                    Model model = MapModelForMake(reader, ref startingIndex);
                     models.Add(model);
                 });
 
@@ -60,21 +62,19 @@ namespace Site_2024.Web.Api.Services
 
         public List<Model> GetModelsAll()
         {
-            string procName = "[dbo].[Model_GetAllModels]";
-
-            List<Model> list = new List<Model>();
+            const string procName = "[dbo].[Model_GetAllModels]";
+            List<Model> list = new();
 
             _data.ExecuteCmd(
                 procName,
-                inputParamMapper: delegate (SqlParameterCollection coll)
+                inputParamMapper: delegate (SqlParameterCollection col)
                 {
-                    // No input parameters, but can be used if needed in the future
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)
                 {
-                    int i = 0;
-                    Model model = MapSingleModel(reader, ref i);
-                    list.Add(model); // Add the model to the list
+                    int startingIndex = 0;
+                    Model model = MapSingleModel(reader, ref startingIndex);
+                    list.Add(model);
                 });
 
             return list;
@@ -87,41 +87,42 @@ namespace Site_2024.Web.Api.Services
         public int AddModel(ModelAddRequest model)
         {
             int id = 0;
+            const string procName = "[dbo].[Model_Insert]";
 
-            string procName = "[dbo].[Model_Insert]";
+            _data.ExecuteNonQuery(
+                procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    AddCommonModelParams(model, col);
 
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                AddCommonModelParams(model, col);
+                    SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
 
-                SqlParameter idOut = new SqlParameter("@Id", SqlDbType.Int);
-                idOut.Direction = ParameterDirection.Output;
-
-                col.Add(idOut);
-
-            }
-            , returnParameters: delegate (SqlParameterCollection returnCollection)
-            {
-                object oId = returnCollection["@Id"].Value;
-
-                int.TryParse(oId.ToString(), out id);
-
-            });
+                    col.Add(idOut);
+                },
+                returnParameters: delegate (SqlParameterCollection returnCollection)
+                {
+                    object oId = returnCollection["@Id"].Value;
+                    int.TryParse(oId.ToString(), out id);
+                });
 
             return id;
         }
 
         public void UpdateModel(ModelUpdateRequest model)
         {
-            string procName = "[dbo].[Model_Update]";
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                AddCommonModelParams(model, col);
-                col.AddWithValue("@Id", model.Id);
-            }
-            , returnParameters: null);
+            const string procName = "[dbo].[Model_Update]";
+
+            _data.ExecuteNonQuery(
+                procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    AddCommonModelParams(model, col);
+                    col.AddWithValue("@Id", model.Id);
+                },
+                returnParameters: null);
         }
 
         #endregion
@@ -130,32 +131,49 @@ namespace Site_2024.Web.Api.Services
 
         public void DeleteModel(int id)
         {
-            string procName = "[dbo].[Model_Delete]";
-            _data.ExecuteNonQuery(procName
-            , inputParamMapper: delegate (SqlParameterCollection col)
-            {
-                col.AddWithValue("@Id", id);
-            }
-            , returnParameters: null);
+            const string procName = "[dbo].[Model_Delete]";
+
+            _data.ExecuteNonQuery(
+                procName,
+                inputParamMapper: delegate (SqlParameterCollection col)
+                {
+                    col.AddWithValue("@Id", id);
+                },
+                returnParameters: null);
         }
 
         #endregion
 
         #region ---MAPPERS---
 
-        private static void AddCommonModelParams(ModelAddRequest model, SqlParameterCollection col)
+        private static void AddCommonModelParams(
+            ModelAddRequest model,
+            SqlParameterCollection col)
         {
             col.AddWithValue("@name", model.Name);
         }
 
-        private Model MapSingleModel(IDataReader reader, ref int startingIndex)
+        // Used by Model_GetById and Model_GetAllModels, which return Id and Name.
+        private static Model MapSingleModel(IDataReader reader, ref int startingIndex)
         {
-            Model model = new Model();
+            return new Model
+            {
+                Id = reader.GetSafeInt32(startingIndex++),
+                Name = reader.GetSafeString(startingIndex++)
+            };
+        }
 
-            model.Id = reader.GetSafeInt32(startingIndex++);
-            model.Name = reader.GetSafeString(startingIndex++);
-
-            return model;
+        // Used only by Model_GetByMakeId, which returns five columns.
+        private static Model MapModelForMake(IDataReader reader, ref int startingIndex)
+        {
+            return new Model
+            {
+                Id = reader.GetSafeInt32(startingIndex++),
+                Name = reader.GetSafeString(startingIndex++),
+                MakeId = reader.GetSafeInt32(startingIndex++),
+                CompanyMakeId = reader.GetSafeInt32(startingIndex++),
+                Company = reader.GetSafeString(startingIndex++)
+            };
         }
 
         #endregion
