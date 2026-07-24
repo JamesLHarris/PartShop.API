@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
+using Site_2024.Models.Domain.Parts;
 using Site_2024.Web.Api.Models;
 using Site_2024.Web.Api.Models.Shopify;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -200,6 +202,58 @@ query GetLocations {
                 VariantUpdated = true,
                 InventoryItemUpdated = true,
                 InventoryActivated = true
+            };
+        }
+
+
+        public async Task<ShopifyProductMediaSyncResult> SyncProductImagesAsync(
+            Part part,
+            IReadOnlyCollection<PartImage> images)
+        {
+            if (!part.ShopifyProductId.HasValue)
+            {
+                throw new ApplicationException(
+                    "Part does not have a ShopifyProductId. Sync it to Shopify before syncing photos.");
+            }
+
+            string productGid = $"gid://shopify/Product/{part.ShopifyProductId.Value}";
+
+            List<(string SourceUrl, string Marker, string Alt)> localImages =
+                BuildLocalProductImages(part, images);
+
+            if (localImages.Count == 0)
+            {
+                return new ShopifyProductMediaSyncResult
+                {
+                    PartId = part.Id,
+                    ProductGid = productGid,
+                    ImagesRequested = 0,
+                    ImagesAdded = 0,
+                    ImagesSkipped = 0
+                };
+            }
+
+            HashSet<string> existingAltText =
+                await GetExistingProductMediaAltTextAsync(productGid);
+
+            List<(string SourceUrl, string Marker, string Alt)> imagesToAdd =
+                localImages
+                    .Where(image => !existingAltText.Any(existing =>
+                        existing.Contains($"[{image.Marker}]", StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+            if (imagesToAdd.Count > 0)
+            {
+                await AddProductMediaAsync(productGid, imagesToAdd);
+            }
+
+            return new ShopifyProductMediaSyncResult
+            {
+                PartId = part.Id,
+                ProductGid = productGid,
+                ImagesRequested = localImages.Count,
+                ImagesAdded = imagesToAdd.Count,
+                ImagesSkipped = localImages.Count - imagesToAdd.Count
             };
         }
 
@@ -689,6 +743,247 @@ mutation UnpublishProductFromOnlineStore($id: ID!, $publicationId: ID!) {
                 }));
 
             throw new ApplicationException($"{failurePrefix}: {messages}");
+        }
+
+
+        private List<(string SourceUrl, string Marker, string Alt)> BuildLocalProductImages(
+            Part part,
+            IReadOnlyCollection<PartImage> images)
+        {
+            List<PartImage> orderedImages = (images ?? Array.Empty<PartImage>())
+                .Where(image => image != null && !string.IsNullOrWhiteSpace(image.Url))
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.SortOrder)
+                .ThenBy(image => image.Id)
+                .ToList();
+
+            List<(string SourceUrl, string Marker, string Alt)> results =
+                new List<(string SourceUrl, string Marker, string Alt)>();
+
+            HashSet<string> seenUrls =
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (int index = 0; index < orderedImages.Count; index++)
+            {
+                PartImage image = orderedImages[index];
+                string sourceUrl = BuildPublicImageUrl(image.Url);
+
+                if (!seenUrls.Add(sourceUrl))
+                {
+                    continue;
+                }
+
+                string marker = $"Site2024:{part.Id}:{image.Id}";
+                string alt = BuildProductImageAlt(part, results.Count + 1, marker);
+
+                results.Add((sourceUrl, marker, alt));
+            }
+
+            // Older records can have Parts.Image populated without a PartImages row.
+            if (results.Count == 0 && !string.IsNullOrWhiteSpace(part.Image))
+            {
+                string sourceUrl = BuildPublicImageUrl(part.Image);
+
+                string urlHash = Convert.ToHexString(
+                    SHA256.HashData(Encoding.UTF8.GetBytes(sourceUrl)))
+                    .Substring(0, 12);
+
+                string marker = $"Site2024:{part.Id}:legacy-{urlHash}";
+                string alt = BuildProductImageAlt(part, 1, marker);
+
+                results.Add((sourceUrl, marker, alt));
+            }
+
+            return results;
+        }
+
+        private async Task<HashSet<string>> GetExistingProductMediaAltTextAsync(
+            string productGid)
+        {
+            string query = @"
+query GetSiteProductMedia($id: ID!) {
+  product(id: $id) {
+    id
+    media(first: 100) {
+      nodes {
+        id
+        alt
+        mediaContentType
+      }
+    }
+  }
+}";
+
+            using JsonDocument doc = await SendGraphQlAsync(
+                query,
+                new { id = productGid });
+
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("errors", out JsonElement topErrors))
+            {
+                throw new ApplicationException(
+                    $"Shopify GraphQL error while reading product media: {topErrors}");
+            }
+
+            JsonElement product = root
+                .GetProperty("data")
+                .GetProperty("product");
+
+            if (product.ValueKind == JsonValueKind.Null)
+            {
+                throw new ApplicationException("Shopify product was not found while syncing photos.");
+            }
+
+            JsonElement nodes = product
+                .GetProperty("media")
+                .GetProperty("nodes");
+
+            HashSet<string> altText =
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (JsonElement node in nodes.EnumerateArray())
+            {
+                if (node.TryGetProperty("alt", out JsonElement altElement) &&
+                    altElement.ValueKind == JsonValueKind.String)
+                {
+                    string? alt = altElement.GetString();
+
+                    if (!string.IsNullOrWhiteSpace(alt))
+                    {
+                        altText.Add(alt);
+                    }
+                }
+            }
+
+            return altText;
+        }
+
+        private async Task AddProductMediaAsync(
+            string productGid,
+            IReadOnlyCollection<(string SourceUrl, string Marker, string Alt)> images)
+        {
+            string mutation = @"
+mutation AddSiteProductMedia(
+  $product: ProductUpdateInput!,
+  $media: [CreateMediaInput!]
+) {
+  productUpdate(product: $product, media: $media) {
+    product {
+      id
+      media(first: 100) {
+        nodes {
+          id
+          alt
+          mediaContentType
+          preview {
+            status
+          }
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}";
+
+            var variables = new
+            {
+                product = new
+                {
+                    id = productGid
+                },
+                media = images.Select(image => new
+                {
+                    originalSource = image.SourceUrl,
+                    alt = image.Alt,
+                    mediaContentType = "IMAGE"
+                }).ToArray()
+            };
+
+            using JsonDocument doc = await SendGraphQlAsync(mutation, variables);
+
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("errors", out JsonElement topErrors))
+            {
+                throw new ApplicationException(
+                    $"Shopify GraphQL error while adding product photos: {topErrors}");
+            }
+
+            JsonElement payload = root
+                .GetProperty("data")
+                .GetProperty("productUpdate");
+
+            ThrowIfUserErrors(
+                payload.GetProperty("userErrors"),
+                "Shopify product photo sync failed");
+        }
+
+        private string BuildPublicImageUrl(string imageUrl)
+        {
+            string trimmed = imageUrl.Trim();
+
+            if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? absoluteUri))
+            {
+                if (absoluteUri.Scheme != Uri.UriSchemeHttp &&
+                    absoluteUri.Scheme != Uri.UriSchemeHttps)
+                {
+                    throw new ApplicationException(
+                        $"Unsupported product image URL scheme: {absoluteUri.Scheme}");
+                }
+
+                return absoluteUri.ToString();
+            }
+
+            string publicApiBaseUrl = ResolvePublicApiBaseUrl();
+            Uri baseUri = new Uri($"{publicApiBaseUrl.TrimEnd('/')}/", UriKind.Absolute);
+            Uri combined = new Uri(baseUri, trimmed.TrimStart('/'));
+
+            return combined.ToString();
+        }
+
+        private string ResolvePublicApiBaseUrl()
+        {
+            if (!string.IsNullOrWhiteSpace(_settings.PublicApiBaseUrl))
+            {
+                return _settings.PublicApiBaseUrl.Trim();
+            }
+
+            // Existing deployments already configure RedirectUri to the public
+            // API callback. Reuse its origin when PublicApiBaseUrl is omitted.
+            if (Uri.TryCreate(_settings.RedirectUri, UriKind.Absolute, out Uri? redirectUri))
+            {
+                return redirectUri.GetLeftPart(UriPartial.Authority);
+            }
+
+            throw new ApplicationException(
+                "ShopifySettings:PublicApiBaseUrl is missing and RedirectUri could not be used to determine the public API host.");
+        }
+
+        private static string BuildProductImageAlt(
+            Part part,
+            int position,
+            string marker)
+        {
+            string name = string.IsNullOrWhiteSpace(part.Name)
+                ? $"Part {part.Id}"
+                : part.Name.Trim();
+
+            string suffix = $" [{marker}]";
+            string prefix = $"{name} - product photo {position}";
+
+            const int maxAltLength = 255;
+            int maxPrefixLength = Math.Max(1, maxAltLength - suffix.Length);
+
+            if (prefix.Length > maxPrefixLength)
+            {
+                prefix = prefix.Substring(0, maxPrefixLength).TrimEnd();
+            }
+
+            return $"{prefix}{suffix}";
         }
 
         private async Task<JsonDocument> SendGraphQlAsync(string query, object variables)

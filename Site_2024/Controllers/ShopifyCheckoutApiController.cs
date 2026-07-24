@@ -23,15 +23,22 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost("cart")]
-        public ActionResult<ItemResponse<ShopifyCheckoutResult>> CreateCartCheckoutUrl([FromBody] ShopifyCheckoutRequest request)
+        public ActionResult<ItemResponse<ShopifyCheckoutResult>>
+            CreateCartCheckoutUrl(
+                [FromBody] ShopifyCheckoutRequest request)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                ShopifyCheckoutResult result = _checkoutService.CreateCheckoutUrl(request);
-                response = new ItemResponse<ShopifyCheckoutResult> { Item = result };
+                ShopifyCheckoutResult result =
+                    _checkoutService.CreateCheckoutUrl(request);
+
+                response = new ItemResponse<ShopifyCheckoutResult>
+                {
+                    Item = result
+                };
             }
             catch (InvalidOperationException ex)
             {
@@ -41,8 +48,59 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                response = new ErrorResponse("Unable to start Shopify checkout.");
-                _logger.LogError(ex, "Unable to create Shopify checkout URL.");
+                response = new ErrorResponse(
+                    "Unable to start Shopify checkout.");
+
+                _logger.LogError(
+                    ex,
+                    "Unable to create Shopify checkout URL.");
+            }
+
+            return StatusCode(code, response);
+        }
+
+        [HttpGet("status/{checkoutToken}")]
+        public ActionResult<ItemResponse<ShopifyCheckoutStatusResult>>
+            GetCheckoutStatus(string checkoutToken)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                ShopifyCheckoutStatusResult? result =
+                    _checkoutService.GetCheckoutStatus(checkoutToken);
+
+                if (result == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse(
+                        "Checkout session was not found.");
+                }
+                else
+                {
+                    response =
+                        new ItemResponse<ShopifyCheckoutStatusResult>
+                        {
+                            Item = result
+                        };
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                code = 400;
+                response = new ErrorResponse(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(
+                    "Unable to check Shopify checkout status.");
+
+                _logger.LogError(
+                    ex,
+                    "Unable to load checkout status for token {CheckoutToken}.",
+                    checkoutToken);
             }
 
             return StatusCode(code, response);

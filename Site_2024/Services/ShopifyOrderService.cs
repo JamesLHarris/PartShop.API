@@ -166,17 +166,18 @@ query GetRecentOrders($first: Int!, $query: String) {
                         continue;
                     }
 
-                    if (item.ShopifyLineItemId <= 0)
+                    if (item.LocalPart.ShopifyOrderId.HasValue && item.LocalPart.ShopifyOrderId.Value == order.ShopifyOrderId)
                     {
-                        row.Message = "Skipped because the Shopify line item did not include a valid id.";
-                        result.SkippedCount++;
+                        row.WasAlreadySynced = true;
+                        row.Message = "Already synced to this Shopify order.";
+                        result.AlreadySyncedCount++;
                         result.Items.Add(row);
                         continue;
                     }
 
-                    if (!item.ShopifyVariantId.HasValue || item.ShopifyVariantId.Value <= 0)
+                    if (item.LocalPart.ShopifyOrderId.HasValue && item.LocalPart.ShopifyOrderId.Value != order.ShopifyOrderId)
                     {
-                        row.Message = "Skipped because the Shopify line item did not include a variant id.";
+                        row.Message = $"Skipped because local part is already attached to Shopify order {item.LocalPart.ShopifyOrderId.Value}.";
                         result.SkippedCount++;
                         result.Items.Add(row);
                         continue;
@@ -187,16 +188,14 @@ query GetRecentOrders($first: Int!, $query: String) {
                         bool wasAlreadySynced = MarkLocalPartSoldFromOrder(
                             item.LocalPart.PartId,
                             order.ShopifyOrderId,
-                            item.ShopifyLineItemId,
-                            item.ShopifyVariantId.Value,
                             item.Quantity,
                             userId);
 
                         row.WasAlreadySynced = wasAlreadySynced;
                         row.WasSynced = !wasAlreadySynced;
                         row.Message = wasAlreadySynced
-                            ? "This Shopify order line was already recorded."
-                            : "Recorded confirmed sale and updated local quantity.";
+                            ? "Already synced to this Shopify order."
+                            : "Marked local part sold/unavailable.";
 
                         if (wasAlreadySynced)
                         {
@@ -237,13 +236,7 @@ query GetRecentOrders($first: Int!, $query: String) {
             return normalized == "PAID" || normalized == "PARTIALLY_PAID";
         }
 
-        private bool MarkLocalPartSoldFromOrder(
-            int partId,
-            long shopifyOrderId,
-            long shopifyLineItemId,
-            long shopifyVariantId,
-            int quantityPurchased,
-            int userId)
+        private bool MarkLocalPartSoldFromOrder(int partId, long shopifyOrderId, int quantityPurchased, int userId)
         {
             bool wasAlreadySynced = false;
             const string procName = "[dbo].[Parts_MarkSoldFromShopifyOrder]";
@@ -253,10 +246,7 @@ query GetRecentOrders($first: Int!, $query: String) {
                 {
                     col.AddWithValue("@PartId", partId);
                     col.AddWithValue("@ShopifyOrderId", shopifyOrderId);
-                    col.AddWithValue("@ShopifyLineItemId", shopifyLineItemId);
-                    col.AddWithValue("@ShopifyVariantId", shopifyVariantId);
                     col.AddWithValue("@QuantityPurchased", quantityPurchased <= 0 ? 1 : quantityPurchased);
-                    col.AddWithValue("@Source", "ShopifyManualSync");
                     col.AddWithValue("@LastMovedBy", userId);
                 },
                 singleRecordMapper: delegate (IDataReader reader, short set)
@@ -365,6 +355,7 @@ query GetRecentOrders($first: Int!, $query: String) {
         private ShopifyLocalPartMatch? GetLocalPartMatchByVariantId(long shopifyVariantId)
         {
             ShopifyLocalPartMatch? match = null;
+            string? legacyImagePath = null;
             const string procName = "[dbo].[Parts_GetOrderMatchByShopifyVariantId]";
 
             _data.ExecuteCmd(procName,
@@ -379,16 +370,15 @@ query GetRecentOrders($first: Int!, $query: String) {
                     int partId = reader.GetSafeInt32(i++);
                     string partName = reader.GetSafeString(i++);
                     string partNumber = reader.GetSafeString(i++);
-                    string imagePath = reader.GetSafeString(i++);
+                    legacyImagePath = reader.GetSafeString(i++);
 
                     match = new ShopifyLocalPartMatch
                     {
                         PartId = partId,
                         PartName = partName,
                         PartNumber = partNumber,
-                        ImageUrl = string.IsNullOrWhiteSpace(imagePath)
-                            ? null
-                            : $"{_staticFileOptions.ImageBaseUrl}{imagePath}",
+                        ImageUrl = null,
+                        ImageUrls = new List<string>(),
                         AvailableId = reader.GetSafeInt32(i++),
                         AvailableStatus = reader.GetSafeString(i++),
                         SiteName = reader.GetSafeString(i++),
@@ -405,7 +395,149 @@ query GetRecentOrders($first: Int!, $query: String) {
                     };
                 });
 
+            if (match != null)
+            {
+                match.ImageUrls = GetLocalPartImageUrls(
+                    match.PartId,
+                    legacyImagePath);
+
+                match.ImageUrl = match.ImageUrls.FirstOrDefault();
+            }
+
             return match;
+        }
+
+        private List<string> GetLocalPartImageUrls(
+            int partId,
+            string? legacyImagePath)
+        {
+            List<(string Url, bool IsPrimary, int SortOrder)> images =
+                new();
+
+            const string procName =
+                "[dbo].[PartImages_SelectByPartId]";
+
+            try
+            {
+                _data.ExecuteCmd(
+                    procName,
+                    inputParamMapper:
+                        delegate (SqlParameterCollection col)
+                        {
+                            col.AddWithValue("@PartId", partId);
+                        },
+                    singleRecordMapper:
+                        delegate (IDataReader reader, short set)
+                        {
+                            int index = 0;
+
+                            index++; // Id
+                            index++; // PartId
+
+                            string url =
+                                reader.GetSafeString(index++);
+
+                            bool isPrimary =
+                                reader.GetSafeBool(index++);
+
+                            int sortOrder =
+                                reader.GetSafeInt32(index++);
+
+                            if (!string.IsNullOrWhiteSpace(url))
+                            {
+                                images.Add(
+                                    (
+                                        url,
+                                        isPrimary,
+                                        sortOrder
+                                    ));
+                            }
+                        });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Unable to load PartImages for order item PartId {PartId}. Falling back to Parts.Image.",
+                    partId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(legacyImagePath))
+            {
+                images.Add(
+                    (
+                        legacyImagePath,
+                        images.Count == 0,
+                        int.MaxValue
+                    ));
+            }
+
+            return images
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.SortOrder)
+                .Select(image => BuildPublicImageUrl(image.Url))
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private string BuildPublicImageUrl(string? imagePath)
+        {
+            string value = (imagePath ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            if (Uri.TryCreate(
+                    value,
+                    UriKind.Absolute,
+                    out Uri? absoluteUri)
+                &&
+                (
+                    absoluteUri.Scheme == Uri.UriSchemeHttp
+                    ||
+                    absoluteUri.Scheme == Uri.UriSchemeHttps
+                ))
+            {
+                return absoluteUri.ToString();
+            }
+
+            string baseUrl = ResolvePublicApiBaseUrl();
+
+            return $"{baseUrl.TrimEnd('/')}/{value.TrimStart('/')}";
+        }
+
+        private string ResolvePublicApiBaseUrl()
+        {
+            if (!string.IsNullOrWhiteSpace(
+                    _settings.PublicApiBaseUrl))
+            {
+                return _settings.PublicApiBaseUrl.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                    _staticFileOptions.ImageBaseUrl)
+                &&
+                !_staticFileOptions.ImageBaseUrl.Contains(
+                    "yourdomain.com",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return _staticFileOptions.ImageBaseUrl.Trim();
+            }
+
+            if (Uri.TryCreate(
+                    _settings.RedirectUri,
+                    UriKind.Absolute,
+                    out Uri? redirectUri))
+            {
+                return redirectUri.GetLeftPart(
+                    UriPartial.Authority);
+            }
+
+            throw new InvalidOperationException(
+                "A public API URL is required to display Site_2024 order photos. Configure ShopifySettings:PublicApiBaseUrl.");
         }
 
         private async Task<JsonDocument> SendGraphQlAsync(string query, object variables)
