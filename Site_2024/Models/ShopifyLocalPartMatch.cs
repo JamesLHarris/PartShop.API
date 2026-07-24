@@ -6,6 +6,10 @@ namespace Site_2024.Web.Api.Models
         public string? PartName { get; set; }
         public string? PartNumber { get; set; }
         public string? ImageUrl { get; set; }
+
+        public List<string> ImageUrls { get; set; } =
+            new List<string>();
+
         public int AvailableId { get; set; }
         public string? AvailableStatus { get; set; }
         public string? SiteName { get; set; }

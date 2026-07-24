@@ -76,7 +76,13 @@ namespace Site_2024.Web.Api.Services
             JsonElement root = doc.RootElement;
 
             result.ShopifyOrderId = GetInt64(root, "id");
-            result.OrderName = GetString(root, "name") ?? GetString(root, "order_number");
+            result.OrderName =
+                GetString(root, "name")
+                ?? GetString(root, "order_number");
+            result.CheckoutToken =
+                GetOrderNoteAttribute(
+                    root,
+                    "site_2024_checkout_token");
 
             WebhookReceiptState receipt = InsertWebhookReceipt(
                 result.WebhookId,
@@ -182,7 +188,14 @@ namespace Site_2024.Web.Api.Services
                     result.Items.Add(row);
                 }
 
-                result.Message = "Shopify orders/paid webhook processed.";
+                MarkCheckoutSessionPaid(
+                    result.CheckoutToken,
+                    result.ShopifyOrderId,
+                    result.OrderName);
+
+                result.Message =
+                    "Shopify orders/paid webhook processed.";
+
                 UpdateWebhookReceipt(
                     result.WebhookId,
                     result.ShopifyOrderId,
@@ -373,6 +386,101 @@ namespace Site_2024.Web.Api.Services
                 });
 
             return wasAlreadySynced;
+        }
+
+        private void MarkCheckoutSessionPaid(
+            string? checkoutToken,
+            long shopifyOrderId,
+            string? orderName)
+        {
+            if (string.IsNullOrWhiteSpace(checkoutToken))
+            {
+                return;
+            }
+
+            if (!Guid.TryParseExact(
+                    checkoutToken.Trim(),
+                    "N",
+                    out Guid parsedToken)
+                &&
+                !Guid.TryParse(
+                    checkoutToken.Trim(),
+                    out parsedToken))
+            {
+                _logger.LogWarning(
+                    "Shopify order {ShopifyOrderId} included an invalid Site_2024 checkout token.",
+                    shopifyOrderId);
+
+                return;
+            }
+
+            const string procName =
+                "[dbo].[ShopifyCheckoutSessions_MarkPaid]";
+
+            _data.ExecuteCmd(
+                procName,
+                inputParamMapper:
+                    delegate (SqlParameterCollection col)
+                    {
+                        col.AddWithValue(
+                            "@CheckoutToken",
+                            parsedToken);
+
+                        col.AddWithValue(
+                            "@ShopifyOrderId",
+                            shopifyOrderId);
+
+                        col.AddWithValue(
+                            "@ShopifyOrderName",
+                            string.IsNullOrWhiteSpace(orderName)
+                                ? DBNull.Value
+                                : orderName);
+                    },
+                singleRecordMapper:
+                    delegate (IDataReader reader, short set)
+                    {
+                        // The procedure is idempotent and returns
+                        // the matching session when one exists.
+                    });
+
+            _logger.LogInformation(
+                "Marked Site_2024 checkout {CheckoutToken} paid for Shopify order {ShopifyOrderId}.",
+                parsedToken.ToString("N"),
+                shopifyOrderId);
+        }
+
+        private static string? GetOrderNoteAttribute(
+            JsonElement order,
+            string attributeName)
+        {
+            if (!order.TryGetProperty(
+                    "note_attributes",
+                    out JsonElement attributes)
+                ||
+                attributes.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            foreach (
+                JsonElement attribute
+                in attributes.EnumerateArray())
+            {
+                string? name =
+                    GetString(attribute, "name");
+
+                if (!string.Equals(
+                        name,
+                        attributeName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                return GetString(attribute, "value");
+            }
+
+            return null;
         }
 
         private static bool IsPaidFinancialStatus(string? status)

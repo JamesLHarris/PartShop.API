@@ -1,4 +1,4 @@
-﻿using Site_2024.Web.Api.Constructors;
+using Site_2024.Web.Api.Constructors;
 using Site_2024.Web.Api.Interfaces;
 using System.Data;
 using System.Security.Claims;
@@ -71,34 +71,37 @@ namespace Site_2024.Web.Api.Services
 
         public async Task<bool> LogInAsync(string email, string password)
         {
-            // Get user details from database
-            string procName = "[dbo].[User_GetByEmail]";
+            const string procName = "[dbo].[User_GetByEmail]";
             IUserAuthData user = null;
 
-            _dataProvider.ExecuteCmd(procName, inputParamMapper: (paramCollection) =>
-            {
-                paramCollection.AddWithValue("@Email", email);
-            },
-            singleRecordMapper: (reader, set) =>
-            {
-                user = new UserAuthData
+            _dataProvider.ExecuteCmd(
+                procName,
+                inputParamMapper: (paramCollection) =>
                 {
-                    Id = reader.GetInt32(0),
-                    Email = reader.GetString(2),
-                    PasswordHash = reader.GetString(3),
-                    RoleId = reader.GetInt32(5),
-                    RoleName = reader.GetString(6)
-                };
-            });
+                    paramCollection.AddWithValue("@Email", email);
+                },
+                singleRecordMapper: (reader, set) =>
+                {
+                    user = new UserAuthData
+                    {
+                        Id = reader.GetInt32(0),
+                        Name = reader.GetString(1),
+                        Email = reader.GetString(2),
+                        PasswordHash = reader.GetString(3),
+                        RoleId = reader.GetInt32(5),
+                        RoleName = reader.GetString(6)
+                    };
+                });
 
-            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            if (user == null ||
+                string.IsNullOrWhiteSpace(user.PasswordHash) ||
+                !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
-                return false; // Login failed
+                return false;
             }
 
-            // Login via authentication service
             await _authenticationService.LogInAsync(user);
-            return true; // Login successful
+            return true;
         }
 
         public int GetUserIdByEmail(string email)

@@ -1,4 +1,4 @@
-﻿namespace Site_2024.Web.Api.Models
+namespace Site_2024.Web.Api.Models
 {
     public class ShopifySettings
     {
@@ -12,5 +12,6 @@
         public bool CreateProductsAsDraft { get; set; } = true;
         public string DefaultLocationGid { get; set; } = string.Empty;
         public string OnlineStorePublicationGid { get; set; } = string.Empty;
+        public string PublicApiBaseUrl { get; set; } = string.Empty;
     }
 }

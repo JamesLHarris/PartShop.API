@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Site_2024.Models.Domain.Parts;
 using Site_2024.Web.Api.Constructors;
@@ -193,8 +193,22 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, response);
                 }
 
+                // Publish uses the latest local quantity, price, SKU, and photos.
+                ShopifyProductInventorySyncResult inventoryResult =
+                    await _shopifyAdminService.SyncProductDetailsForPartAsync(part);
+
+                List<PartImage> images = _partImageService.GetByPartId(id);
+
+                ShopifyProductMediaSyncResult mediaResult =
+                    await _shopifyAdminService.SyncProductImagesAsync(part, images);
+
                 ShopifyProductPublishResult publishResult =
                     await _shopifyAdminService.PublishProductForPartAsync(part);
+
+                publishResult.InventoryQuantity = inventoryResult.Quantity;
+                publishResult.ImagesRequested = mediaResult.ImagesRequested;
+                publishResult.ImagesAdded = mediaResult.ImagesAdded;
+                publishResult.ImagesSkipped = mediaResult.ImagesSkipped;
 
                 response = new ItemResponse<ShopifyProductPublishResult>
                 {
@@ -206,6 +220,72 @@ namespace Site_2024.Web.Api.Controllers
                 code = 500;
                 response = new ErrorResponse(ex.Message);
                 Logger.LogError(ex, "Shopify publish failed for PartId {PartId}", id);
+            }
+
+            return StatusCode(code, response);
+        }
+
+
+        [HttpPost("{id:int}/shopify/sync")]
+        [Authorize(Policy = "AdminAction")]
+        public async Task<ActionResult<ItemResponse<ShopifyPartManualSyncResult>>> SyncShopifyProduct(int id)
+        {
+            int code = 200;
+            BaseResponse response;
+
+            try
+            {
+                var user = _authService.GetCurrentUser();
+
+                if (user == null)
+                {
+                    code = 401;
+                    response = new ErrorResponse("You must be logged in.");
+                    return StatusCode(code, response);
+                }
+
+                Part part = _service.GetPartById(id);
+
+                if (part == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("Part not found.");
+                    return StatusCode(code, response);
+                }
+
+                if (!part.ShopifyProductId.HasValue ||
+                    !part.ShopifyVariantId.HasValue ||
+                    !part.ShopifyInventoryItemId.HasValue)
+                {
+                    code = 400;
+                    response = new ErrorResponse(
+                        "This part is missing one or more Shopify IDs.");
+                    return StatusCode(code, response);
+                }
+
+                ShopifyProductInventorySyncResult inventoryResult =
+                    await _shopifyAdminService.SyncProductDetailsForPartAsync(part);
+
+                List<PartImage> images = _partImageService.GetByPartId(id);
+
+                ShopifyProductMediaSyncResult mediaResult =
+                    await _shopifyAdminService.SyncProductImagesAsync(part, images);
+
+                response = new ItemResponse<ShopifyPartManualSyncResult>
+                {
+                    Item = new ShopifyPartManualSyncResult
+                    {
+                        PartId = id,
+                        Inventory = inventoryResult,
+                        Media = mediaResult
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Manual Shopify sync failed for PartId {PartId}", id);
             }
 
             return StatusCode(code, response);
@@ -375,7 +455,7 @@ namespace Site_2024.Web.Api.Controllers
 
         [HttpPatch("{id:int}")]
         [Authorize(Policy = "AdminAction")]
-        public ActionResult<BaseResponse> UpdatePart(int id, [FromBody] PartPatchRequest model)
+        public async Task<ActionResult<BaseResponse>> UpdatePart(int id, [FromBody] PartPatchRequest model)
         {
             int code = 200;
             BaseResponse response;
@@ -448,8 +528,60 @@ namespace Site_2024.Web.Api.Controllers
                     return StatusCode(code, new ErrorResponse("Image path cannot exceed 260 characters."));
                 }
 
+                Part existingPart = _service.GetPartById(id);
+
+                if (existingPart == null)
+                {
+                    code = 404;
+                    return StatusCode(code, new ErrorResponse("Part not found."));
+                }
+
                 _service.PatchPart(id, model, user.Id);
-                response = new SuccessResponse();
+
+                PartPatchResult result = new PartPatchResult
+                {
+                    LocalUpdated = true,
+                    ShopifySyncAttempted = false,
+                    ShopifySyncSucceeded = false
+                };
+
+                // Quantity changes are automatically pushed to Shopify when
+                // this part has a complete Shopify inventory mapping.
+                if (model.Quantity.HasValue)
+                {
+                    Part updatedPart = _service.GetPartById(id);
+
+                    if (updatedPart?.ShopifyProductId.HasValue == true &&
+                        updatedPart.ShopifyVariantId.HasValue &&
+                        updatedPart.ShopifyInventoryItemId.HasValue)
+                    {
+                        result.ShopifySyncAttempted = true;
+
+                        try
+                        {
+                            ShopifyProductInventorySyncResult shopifyResult =
+                                await _shopifyAdminService.SyncProductDetailsForPartAsync(updatedPart);
+
+                            result.ShopifySyncSucceeded = true;
+                            result.ShopifyQuantity = shopifyResult.Quantity;
+                        }
+                        catch (Exception shopifyEx)
+                        {
+                            result.Warning =
+                                "The local quantity was saved, but Shopify inventory did not sync. Use Sync with Shopify to retry.";
+
+                            Logger.LogError(
+                                shopifyEx,
+                                "Automatic Shopify quantity sync failed after local update for PartId {PartId}.",
+                                id);
+                        }
+                    }
+                }
+
+                response = new ItemResponse<PartPatchResult>
+                {
+                    Item = result
+                };
             }
             catch (Exception ex) when (IsFkViolation(ex))
             {

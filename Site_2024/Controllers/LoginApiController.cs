@@ -1,11 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models.User;
 using Site_2024.Web.Api.Requests;
 using Site_2024.Web.Api.Responses;
 using Site_2024.Web.Api.Services;
-using System;
-using System.Threading.Tasks;
 
 namespace Site_2024.Web.Api.Controllers
 {
@@ -26,7 +24,8 @@ namespace Site_2024.Web.Api.Controllers
         }
 
         [HttpPost("register")]
-        public ActionResult<ItemResponse<int>> Register([FromBody] UserRegisterRequest model)
+        public ActionResult<ItemResponse<int>> Register(
+            [FromBody] UserRegisterRequest model)
         {
             int code = 201;
             BaseResponse response;
@@ -39,22 +38,25 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Unable to register user.");
+                response = new ErrorResponse("Unable to register user.");
             }
 
             return StatusCode(code, response);
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<ItemResponse<int>>> Login([FromBody] UserLoginRequest model)
+        public async Task<ActionResult<ItemResponse<AuthenticatedUser>>> Login(
+            [FromBody] UserLoginRequest model)
         {
             int code = 200;
             BaseResponse response;
 
             try
             {
-                bool success = await _service.LogInAsync(model.Email, model.Password);
+                bool success = await _service.LogInAsync(
+                    model.Email.Trim(),
+                    model.Password);
 
                 if (!success)
                 {
@@ -63,24 +65,26 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    // Assumes this exists and is stable in your service layer
-                    int userId = _service.GetUserIdByEmail(model.Email);
-                    response = new ItemResponse<int> { Item = userId };
+                    IUserAuthData currentUser = _authService.GetCurrentUser();
+
+                    response = new ItemResponse<AuthenticatedUser>
+                    {
+                        Item = ToSafeUser(currentUser)
+                    };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Unable to log in.");
+                response = new ErrorResponse("Unable to log in at this time.");
             }
 
             return StatusCode(code, response);
         }
 
-        // GET api/login/me
         [HttpGet("me")]
-        public ActionResult<ItemResponse<IUserAuthData>> GetCurrentUser()
+        public ActionResult<ItemResponse<AuthenticatedUser>> GetCurrentUser()
         {
             int code = 200;
             BaseResponse response;
@@ -96,22 +100,26 @@ namespace Site_2024.Web.Api.Controllers
                 }
                 else
                 {
-                    response = new ItemResponse<IUserAuthData> { Item = user };
+                    response = new ItemResponse<AuthenticatedUser>
+                    {
+                        Item = ToSafeUser(user)
+                    };
                 }
             }
             catch (Exception ex)
             {
                 code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Unable to read the current user.");
+                response = new ErrorResponse(
+                    "Unable to read the current user at this time.");
             }
 
             return StatusCode(code, response);
         }
 
-        // GET api/login/current?email=test@test.com
         [HttpGet("current")]
-        public ActionResult<ItemResponse<User>> GetUserByEmail([FromQuery] string email)
+        public ActionResult<ItemResponse<User>> GetUserByEmail(
+            [FromQuery] string email)
         {
             int code = 200;
             BaseResponse response;
@@ -133,14 +141,14 @@ namespace Site_2024.Web.Api.Controllers
             catch (Exception ex)
             {
                 code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Unable to load the requested user.");
+                response = new ErrorResponse(
+                    "Unable to load the requested user at this time.");
             }
 
             return StatusCode(code, response);
         }
 
-        // Keeping your route as-is (Week 1: don't break anything)
         [HttpGet("logout")]
         public async Task<ActionResult<SuccessResponse>> Logout()
         {
@@ -149,27 +157,38 @@ namespace Site_2024.Web.Api.Controllers
 
             try
             {
-                bool isLoggedIn = _authService.IsLoggedIn();
-
-                if (!isLoggedIn)
-                {
-                    code = 401;
-                    response = new ErrorResponse("Not logged in.");
-                }
-                else
+                if (_authService.IsLoggedIn())
                 {
                     await _authService.LogOutAsync();
-                    response = new SuccessResponse();
                 }
+
+                // Logout is idempotent. An already-expired session is still a success.
+                response = new SuccessResponse();
             }
             catch (Exception ex)
             {
                 code = 500;
-                base.Logger.LogError(ex.ToString());
-                response = new ErrorResponse(ex.Message);
+                Logger.LogError(ex, "Unable to log out.");
+                response = new ErrorResponse("Unable to log out at this time.");
             }
 
             return StatusCode(code, response);
+        }
+
+        private static AuthenticatedUser ToSafeUser(IUserAuthData user)
+        {
+            if (user == null)
+            {
+                return null;
+            }
+
+            return new AuthenticatedUser
+            {
+                Id = user.Id,
+                Name = user.Name,
+                Email = user.Email,
+                RoleName = user.RoleName
+            };
         }
     }
 }

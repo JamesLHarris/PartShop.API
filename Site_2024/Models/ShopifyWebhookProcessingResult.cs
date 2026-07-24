@@ -9,6 +9,7 @@ namespace Site_2024.Web.Api.Models
         public string? ShopDomain { get; set; }
         public long ShopifyOrderId { get; set; }
         public string? OrderName { get; set; }
+        public string? CheckoutToken { get; set; }
         public int LineItemsChecked { get; set; }
         public int PartsMarkedSold { get; set; }
         public int AlreadySyncedCount { get; set; }

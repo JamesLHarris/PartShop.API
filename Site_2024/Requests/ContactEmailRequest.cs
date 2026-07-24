@@ -27,5 +27,8 @@ namespace Site_2024.Web.Api.Requests
         [Required]
         [StringLength(4000, MinimumLength = 10)]
         public string Message { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int? PartId { get; set; }
     }
 }

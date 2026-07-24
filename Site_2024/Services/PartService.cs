@@ -1,11 +1,15 @@
-using Microsoft.Extensions.Options;
-using Site_2024.Web.Api.Constructors;
-using Site_2024.Web.Api.Extensions;
-using Site_2024.Web.Api.Interfaces;
+﻿using Site_2024.Web.Api.Interfaces;
 using Site_2024.Web.Api.Models;
-using Site_2024.Web.Api.Requests;
 using System.Data;
+using System.Linq;
+using Site_2024.Web.Api.Extensions;
 using System.Data.SqlClient;
+using Site_2024.Web.Api.Constructors;
+using Site_2024.Web.Api.Requests;
+using Microsoft.Extensions.Options;
+using Site_2024.Web.Api.Configurations;
+using Microsoft.Extensions.Logging;
+using Site_2024.Models.Domain.Parts;
 using StaticFileOptions = Site_2024.Web.Api.Configurations.StaticFileOptions;
 
 namespace Site_2024.Web.Api.Services
@@ -343,6 +347,7 @@ namespace Site_2024.Web.Api.Services
                     col.AddWithValue("@CatagoryId", (object?)model.CatagoryId ?? DBNull.Value);
                     col.AddWithValue("@MakeId", (object?)model.MakeId ?? DBNull.Value);
                     col.AddWithValue("@ModelId", (object?)model.ModelId ?? DBNull.Value);
+                    col.AddWithValue("@Year", (object?)model.Year ?? DBNull.Value);
                     col.AddWithValue("@ConditionId", (object?)model.ConditionId ?? DBNull.Value);
                     col.AddWithValue("@AvailableId", (object?)model.AvailableId ?? DBNull.Value);
                     col.AddWithValue("@PriceMin", (object?)model.PriceMin ?? DBNull.Value);
@@ -402,7 +407,14 @@ namespace Site_2024.Web.Api.Services
                     list.Add(part);
                 });
 
-            return list == null ? null : new Paged<PartCustomerSummary>(list, pageIndex, pageSize, totalCount);
+            // A valid search with no matches should be a successful empty page,
+            // not a 404 response. This allows the customer UI to show its
+            // normal "No parts found" state.
+            return new Paged<PartCustomerSummary>(
+                list ?? new List<PartCustomerSummary>(),
+                pageIndex,
+                pageSize,
+                totalCount);
         }
 
         #endregion
@@ -621,7 +633,7 @@ namespace Site_2024.Web.Api.Services
 
             part.Available.Id = reader.GetSafeInt32(startingIndex++);
             part.Available.Status = reader.GetSafeString(startingIndex++);
-            part.QuantitySold = reader.GetSafeInt64(startingIndex++);
+            part.QuantitySold = Convert.ToInt64(reader.GetValue(startingIndex++));
 
             part.Categories = new List<PartCategory>();
             part.Fitments = new List<PartFitment>();
@@ -823,6 +835,51 @@ namespace Site_2024.Web.Api.Services
             }
         }
 
+        private static bool TryParseYearRange(string? value, out int yearStart, out int yearEnd)
+        {
+            yearStart = 0;
+            yearEnd = 0;
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            string normalized = value
+                .Trim()
+                .Replace("–", "-")
+                .Replace("—", "-");
+
+            string[] pieces = normalized.Split(
+                '-',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (pieces.Length == 1 && int.TryParse(pieces[0], out yearStart))
+            {
+                yearEnd = yearStart;
+                return true;
+            }
+
+            if (pieces.Length == 2 &&
+                int.TryParse(pieces[0], out yearStart) &&
+                int.TryParse(pieces[1], out yearEnd) &&
+                yearStart <= yearEnd)
+            {
+                return true;
+            }
+
+            yearStart = 0;
+            yearEnd = 0;
+            return false;
+        }
+
+        private static string FormatYearRange(int yearStart, int yearEnd)
+        {
+            return yearStart == yearEnd
+                ? yearStart.ToString()
+                : $"{yearStart} - {yearEnd}";
+        }
+
         private static void NormalizeLegacyFields(PartAddRequest model)
         {
             if ((model.Categories == null || model.Categories.Count == 0) && model.CatagoryId > 0)
@@ -839,23 +896,28 @@ namespace Site_2024.Web.Api.Services
 
             if ((model.Fitments == null || model.Fitments.Count == 0) && model.MakeId > 0)
             {
-                if (int.TryParse(model.Year, out int parsedYear))
+                if (TryParseYearRange(model.Year, out int yearStart, out int yearEnd))
                 {
                     model.Fitments = new List<PartFitmentAddRequest>
                     {
                         new PartFitmentAddRequest
                         {
                             MakeId = model.MakeId,
-                            YearStart = parsedYear,
-                            YearEnd = parsedYear
+                            YearStart = yearStart,
+                            YearEnd = yearEnd
                         }
                     };
+
+                    model.Year = FormatYearRange(yearStart, yearEnd);
                 }
             }
             else if (model.Fitments != null && model.Fitments.Count > 0)
             {
-                model.MakeId = model.Fitments[0].MakeId;
-                model.Year = model.Fitments[0].YearStart.ToString();
+                PartFitmentAddRequest primaryFitment = model.Fitments[0];
+                model.MakeId = primaryFitment.MakeId;
+                model.Year = FormatYearRange(
+                    primaryFitment.YearStart,
+                    primaryFitment.YearEnd);
             }
         }
 

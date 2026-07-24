@@ -18,5 +18,9 @@
         public bool EnableSsl { get; set; }
         public string SmtpUsername { get; set; }
         public string SmtpPassword { get; set; }
+
+        // Optional fallback used when the browser Origin header is unavailable.
+        // Example: https://your-site.azurestaticapps.net
+        public string SiteBaseUrl { get; set; }
     }
 }
